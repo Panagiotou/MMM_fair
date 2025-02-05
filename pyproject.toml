@@ -12,7 +12,6 @@ authors = [
 ]
 license = { file = "LICENSE" }
 keywords = ["fairness", "boosting", "classification", "machine-learning"]
-homepage = "https://github.com/arjunroyihrpa/MMM_fair"
 requires-python = ">=3.11"
 
 # Add the dependencies your code needs:
@@ -26,4 +25,5 @@ dependencies = [
 # Optional: Provide additional URLs
 # (e.g., where users can file issues)
 [project.urls]
+Homepage= "https://github.com/arjunroyihrpa/MMM_fair"
 "Bug Tracker" = "https://github.com/arjunroyihrpa/MMM_fair/issues"
