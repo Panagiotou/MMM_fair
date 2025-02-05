@@ -1,0 +1,42 @@
+name: Publish to PyPI via OIDC
+
+on:
+  push:
+    tags:
+      - "v*"  # e.g. triggers on version tags like v0.1.0, v1.0.0, etc.
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write  # Needed for OIDC
+
+jobs:
+  publish:
+    name: Build and Publish mmm_fair
+    runs-on: ubuntu-latest
+
+    # If you specified an environment name in PyPI, e.g. "pypi-prod", add it here:
+    # environment: pypi-prod
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Install build backend
+        run: pip install build
+
+      - name: Build the distribution
+        run: python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          dists: dist/*
+        env:
+          PYPI_USERNAME: "__token__"
+          # No PYPI_TOKEN needed—OpenID Connect is used
