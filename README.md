@@ -15,7 +15,7 @@ We further improve the approach by:
 
 ## Installation
 
-[pip install mmm-fair](##pip install mmm-fair)
+	•	pip install mmm-fair
 
 Requires Python 3.11+.
 
@@ -25,8 +25,8 @@ Dependencies: numpy, scikit-learn, tqdm, pymoo, pandas, ucimlrepo, skl2onnx, etc
 
 You can import and use MMM-Fair directly:
 
-[from mmm_fair import MMM_Fair](##from mmm_fair import MMM_Fair)
-[from sklearn.tree import DecisionTreeClassifier](##from sklearn.tree import DecisionTreeClassifier)
+	•	from mmm_fair import MMM_Fair 
+	•	from sklearn.tree import DecisionTreeClassifier
 
 # Suppose you have X (features), y (labels)
 ### 
@@ -59,23 +59,23 @@ This package provides a script, train_and_deploy.py, which:
 
 [using UCI library](https://archive.ics.uci.edu)
 
-python -m mmm_fair.train_and_deploy \
-  --dataset Adult \
-  --prots race sex\
-  --nprotgs White Male \
-  --constraint EO \
-  --base_learner Logistic\
+python -m mmm_fair.train_and_deploy \\ \
+  --dataset Adult \\ \
+  --prots race sex \\ \
+  --nprotgs White Male \\ \
+  --constraint EO \\ \
+  --base_learner Logistic\\ \
   --deploy onnx
 
 [using local "csv" data]
 
-python -m mmm_fair.train_and_deploy \
-  --dataset mydata.csv \
-  --target label_col \
-  --prots prot_1 prot_2 prot_3 \
-  --nprotgs npg1 npg2 npg3 \
-  --constraint EO \
-  --base_learner tree \
+python -m mmm_fair.train_and_deploy \\ \
+  --dataset mydata.csv \\ \
+  --target label_col \\ \
+  --prots prot_1 prot_2 prot_3 \\ \
+  --nprotgs npg1 npg2 npg3 \\ \
+  --constraint EO \\ \
+  --base_learner tree \\ \
   --deploy onnx
 
 #### Currently the fairness intervention only implemented for categorical groups. 
