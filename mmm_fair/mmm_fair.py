@@ -4,7 +4,7 @@ import numpy as np
 import sklearn
 from sklearn.base import is_classifier, ClassifierMixin, is_regressor
 from sklearn.ensemble import BaseEnsemble
-
+from tqdm import tqdm 
 # from sklearn.ensemble.forest import BaseForest
 # from sklearn.externals
 import six
@@ -149,13 +149,16 @@ class BaseWeightBoosting(six.with_metaclass(ABCMeta, BaseEnsemble)):
         if self.debug:
             self.weight_list.append("init" + "," + str(0) + "," + ",".join(wgs))
 
-        flag, iboost, best_theta = 0, -1, 0
+        flag,  best_theta = 0, 0
         T = self.n_estimators
         self.ob = []
         self.fairobs = []
-        while iboost < T:
+        progress_bar = tqdm(range(T), desc="MMM_Fair Boosting", unit="round")
+        #iboost=-1
+        #while iboost < T:
+        for iboost in progress_bar: 
             # Boosting step
-            iboost += 1
+            #iboost += 1
             (
                 sample_weight,
                 alpha,
@@ -457,7 +460,8 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         pareto=False,
         pos_class=None,
         constraints="DP",
-        gamma=0.5
+        gamma=0.5,
+        tracking=False  ###This is a developer option for debugging
     ):  # ,protected_attr=['Race','Sex']):
         super(MMM_Fair, self).__init__(
             estimator=estimator,
@@ -487,6 +491,7 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         self.sensitives = list(self.saValue.keys())
         valid_constraints = {"DP", "EP", "EO"}  # Using a set for quick membership testing
         self.gamma=gamma
+        self.tracking=tracking
         if constraints not in valid_constraints:
             raise ValueError(f"Invalid fairness constraint '{constraints}'. Must be one of {valid_constraints}.")
         
@@ -624,19 +629,20 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         cost = []
         fair_cost, eq_odds = [], []
         lists = ""
+        slack=10**(-10) ##to avoid division by zero
         for i in range(len(self.saValue)):
-            tpr_protected = tp_protected[i] / (tp_protected[i] + fn_protected[i])
+            tpr_protected = tp_protected[i] / (tp_protected[i] + fn_protected[i] + slack)
             tpr_non_protected = tp_non_protected[i] / (
-                tp_non_protected[i] + fn_non_protected[i]
+                tp_non_protected[i] + fn_non_protected[i] + slack
             )
 
-            tnr_protected = tn_protected[i] / (tn_protected[i] + fp_protected[i])
+            tnr_protected = tn_protected[i] / (tn_protected[i] + fp_protected[i] + slack)
             tnr_non_protected = tn_non_protected[i] / (
-                tn_non_protected[i] + fp_non_protected[i]
+                tn_non_protected[i] + fp_non_protected[i] + slack
             )
-            ppr_protected = (tp_protected[i]+fp_protected[i]) / (tp_protected[i] + fn_protected[i]+tn_protected[i] + fp_protected[i])
+            ppr_protected = (tp_protected[i]+fp_protected[i]) / (tp_protected[i] + fn_protected[i]+tn_protected[i] + fp_protected[i] + slack)
             ppr_non_protected = (tp_non_protected[i]+ fp_non_protected[i]) / (
-                tp_non_protected[i] + fn_non_protected[i] + tn_non_protected[i] + fp_non_protected[i]
+                tp_non_protected[i] + fn_non_protected[i] + tn_non_protected[i] + fp_non_protected[i] + slack
             )
 
             diff_tpr = tpr_non_protected - tpr_protected
@@ -1029,8 +1035,9 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
 
         cumulative_balanced_loss = abs(TPR - TNR)
         cumulative_loss = 1 - (float(tp) + float(tn)) / (tp + tn + fp + fn)
-        if iboost%10==0:
-            print(iboost,": ",estimator_error, cumulative_loss,cumulative_balanced_loss,fairness)
+        if self.tracking:
+            if iboost%10==0:
+                print(iboost,": ",estimator_error, cumulative_loss,cumulative_balanced_loss,fairness)
 
         if not iboost == self.n_estimators - 1:
             for idx, row in enumerate(sample_weight):

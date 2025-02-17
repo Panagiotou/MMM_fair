@@ -1,0 +1,69 @@
+import numpy as np
+import pickle
+import os
+import shutil
+from skl2onnx import to_onnx
+# from skl2onnx.common.data_types import FloatTensorType  # Optional shape hints
+
+def convert_to_onnx(custom_model, output_path, X):
+    """
+    Convert each weak estimator in a MMM_Fair ensemble to a separate ONNX file,
+    and save additional parameters in a .npy file.
+    Then zip up everything into one archive.
+
+    :param custom_model: The MMM_Fair instance (already fitted).
+    :param output_path:  Prefix for the generated files. E.g. "my_adult_model"
+    :param X:            A sample input array for shape inference.
+    """
+    # Ensure the model is fitted
+    assert custom_model.estimators_ is not None, "Model must be fitted before conversion."
+
+    # Create directory to store ONNX + param files, e.g. "my_adult_model_dir"
+    model_dir = f"{output_path}_dir"
+    os.makedirs(model_dir, exist_ok=True)
+
+    # Possibly reduce X for shape inference
+    sample_input = X[:1].astype(np.float32)
+
+    # Convert each estimator to ONNX
+    onnx_models = []
+    for i, estimator in enumerate(custom_model.estimators_):
+        onnx_model = to_onnx(estimator, sample_input)
+        onnx_models.append(onnx_model)
+
+    # Save each ONNX file in model_dir
+    for i, onnx_model in enumerate(onnx_models):
+        onnx_file = os.path.join(model_dir, f"estimator_{i}.onnx")
+        with open(onnx_file, "wb") as f:
+            f.write(onnx_model.SerializeToString())
+
+    # Save additional MMM_Fair parameters in a .npy
+    # Adjust keys if needed
+    params = {
+        "n_classes": custom_model.n_classes_,
+        "classes": custom_model.classes_,
+        "alphas": custom_model.estimator_alphas_,
+        "theta": custom_model.theta,
+        "sensitives": custom_model.sensitives,
+        "pareto": list(custom_model.PF.keys()) if custom_model.PF else []
+    }
+
+    params_file = os.path.join(model_dir, "model_params.npy")
+    np.save(params_file, params, allow_pickle=True)
+
+    # Finally, zip up the entire directory
+    # e.g. creates "my_adult_model_dir.zip"
+    archive_name = f"{model_dir}.zip"
+    shutil.make_archive(model_dir, "zip", model_dir)
+
+    print(f"Saved ONNX models and params to {model_dir}, and archived at {archive_name}")
+
+def convert_to_pickle(custom_model, output_path):
+    """
+    Serialize the entire MMM_Fair ensemble to a single .pkl file.
+    """
+    import pickle
+    out_file = f"{output_path}.pkl"
+    with open(out_file, "wb") as f:
+        pickle.dump(custom_model, f)
+    print(f"Saved pickle model to {out_file}")
