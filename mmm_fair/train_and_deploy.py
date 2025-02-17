@@ -15,15 +15,26 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 
-def parse_age_range(age_str):
+def parse_numeric_input(value_str):
     """
-    Parses an age range input like "30_60" into a tuple (30, 60).
+    Parses a numeric input which can be:
+    - A single numeric value: "30" -> 30.0
+    - A range of two values: "30_60" -> (30.0, 60.0)
+
+    Returns either:
+    - A tuple (lower, upper) if it's a range.
+    - A single float/int if it's just one number.
     """
     try:
-        lower, upper = map(float, age_str.split("_"))
-        return lower, upper
+        if "_" in value_str:
+            lower, upper = map(float, value_str.split("_"))
+            return lower, upper  # Return as a tuple for range
+        else:
+            return float(value_str)  # Return single numeric value
     except ValueError:
-        raise ValueError(f"Invalid age range format '{age_str}'. Expected format: a range as 'lower_upper' e.g 30_60.")
+        raise ValueError(f"Invalid numeric format '{value_str}'. Expected a single number '30' or a range '30_60'.")
+
+# --- Processing logic ---
         
 def parse_base_learner(learner_str):
     if learner_str.lower() in ("tree","dt", "decisiontree", "decision_tree"):
@@ -118,12 +129,18 @@ def main():
                 f"Available columns: {list(data.data.columns)}"
             )
         else:
-            if col.lower()=='age' and pd.api.types.is_numeric_dtype(data.data[col]):
-                lower, upper = parse_age_range(val)
-                if lower < data.data[col].min() or upper > data.data[col].max():
-                    raise ValueError(
-                        f"Age range '{val}' is outside dataset range [{data.data[col].min()}, {data.data[col].max()}]."
-                    )
+            if pd.api.types.is_numeric_dtype(data.data[col]):
+                parsed_value = parse_numeric_input(val)
+                if isinstance(parsed_value, tuple): 
+                    if parsed_value[0] < data.data[col].min() or parsed_value[1] > data.data[col].max():
+                        raise ValueError(
+                            f"{col} range '{val}' is outside dataset range [{data.data[col].min()}, {data.data[col].max()}]."
+                        )
+                else:  # If it's a single numeric value
+                    if parsed_value < data.data[col].min() or parsed_value > data.data[col].max():
+                        raise ValueError(
+                            f"Numeric value '{val}' is outside dataset range [{data.data[col].min()}, {data.data[col].max()}]."
+                        )
                     
             else:
                 unique_vals = data.data[col].unique()
@@ -136,8 +153,11 @@ def main():
     saValue = {attr: 0 for attr in args.prots}
     # For each column i, set 1 if it equals the non-protected value, else 0
     for i, iprots in enumerate(zip(saValue,args.nprotgs)):
-        if iprots[0].lower()=='age' and pd.api.types.is_numeric_dtype(data.data[col]):
-            ((saIndex[:, i].astype(float) > lower) & (saIndex[:, i].astype(float) < upper)).astype(int)
+        if pd.api.types.is_numeric_dtype(data.data[col]):
+            if isinstance(parsed_value, tuple):
+                ((saIndex[:, i].astype(float) > parsed_value[0]) & (saIndex[:, i].astype(float) < parsed_value[1])).astype(int)
+            else:
+                saIndex[:, i] = (saIndex[:, i] == parsed_value).astype(int)
             
         else:
             saIndex[:, i] = (saIndex[:, i] == iprots[1]).astype(int)

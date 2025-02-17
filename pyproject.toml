@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mmm-fair"
-version = "0.2.0"
+version = "0.2.1"
 description = "A multi-objective multi-fairness boosting classifier"
 readme = "README.md"
 authors = [

@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: mmm-fair
-Version: 0.2.0
+Version: 0.2.1
 Summary: A multi-objective multi-fairness boosting classifier
 Author-email: Arjun Roy <arjunroyihrpa@gmail.com>
 License:                                  Apache License
