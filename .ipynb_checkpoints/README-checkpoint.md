@@ -15,7 +15,7 @@ We further improve the approach by:
 
 ## Installation
 
-	•	pip install mmm-fair
+		pip install mmm-fair
 
 Requires Python 3.11+.
 
@@ -25,8 +25,8 @@ Dependencies: numpy, scikit-learn, tqdm, pymoo, pandas, ucimlrepo, skl2onnx, etc
 
 You can import and use MMM-Fair directly:
 
-	•	from mmm_fair import MMM_Fair 
-	•	from sklearn.tree import DecisionTreeClassifier
+		from mmm_fair import MMM_Fair 
+		from sklearn.tree import DecisionTreeClassifier
 
 # Suppose you have X (features), y (labels)
 ### 
