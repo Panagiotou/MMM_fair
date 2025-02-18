@@ -14,7 +14,68 @@ from .hyperparams import get_hparams  # The function that sets hyperparams or fa
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
+from sklearn.tree import ExtraTreeClassifier
+from sklearn.model_selection import train_test_split
 
+
+
+def build_sensitives(
+    df: pd.DataFrame,
+    protected_cols: list,
+    non_protected_vals: list
+):
+    """
+    Constructs saIndex and saValue for fairness analysis.
+
+    :param df: A pandas DataFrame containing all relevant data.
+    :param protected_cols: List of column names for protected attributes.
+    :param non_protected_vals: A list (same length) of "non-protected" specs,
+        which can be:
+        - Single values (str, float, int) for categorical or exact numeric matching,
+        - A (lower, upper) tuple for numeric range checks.
+    :return: (saIndex, saValue)
+        saIndex: a 2D NumPy array of shape (n_samples, len(protected_cols)).
+                 Each column i is 1 if the row's value is "non-protected" for that attribute,
+                 else 0 if "protected".
+        saValue: a dictionary {protected_col: 0, ...} indicating the convention
+                 that 0 is considered protected.
+    """
+
+    if len(protected_cols) != len(non_protected_vals):
+        raise ValueError(
+            f"Number of protected columns ({len(protected_cols)}) does not match "
+            f"the number of non-protected values ({len(non_protected_vals)})."
+        )
+
+    # We'll store 1 if row is "non-protected" according to the definition, else 0
+    saIndex = df[protected_cols].to_numpy(copy=True)  # shape (n_samples, #prot_cols)
+    saValue = {col: 0 for col in protected_cols}      # By default, interpret 0 as "protected"
+
+    # Iterate over each protected column with the corresponding "non-protected" definition
+    for i, (col, nprot_val) in enumerate(zip(protected_cols, non_protected_vals)):
+
+        # Check if the column is numeric
+        if pd.api.types.is_numeric_dtype(df[col]):
+            parsed_value = parse_numeric_input(nprot_val)
+            # If numeric, see if nprot_val is a tuple => range, or single numeric => exact match
+            if isinstance(parsed_value, tuple) and len(parsed_value) == 2:
+                lower, upper = parsed_value
+                # "Non-protected" if value is between lower and upper
+                saIndex[:, i] = (
+                    (saIndex[:, i].astype(float) > float(lower)) &
+                    (saIndex[:, i].astype(float) < float(upper))
+                ).astype(int)
+            else:
+                # Single numeric => direct match
+                val_float = float(parsed_value)
+                saIndex[:, i] = (saIndex[:, i].astype(float) == val_float).astype(int)
+
+        else:
+            # Categorical => simple string (or object) match
+            saIndex[:, i] = (saIndex[:, i] == nprot_val).astype(int)
+
+    return saIndex, saValue
+    
 def parse_numeric_input(value_str):
     """
     Parses a numeric input which can be:
@@ -39,6 +100,8 @@ def parse_numeric_input(value_str):
 def parse_base_learner(learner_str):
     if learner_str.lower() in ("tree","dt", "decisiontree", "decision_tree"):
         return DecisionTreeClassifier(max_depth=5, class_weight=None)
+    elif learner_str.lower() in ("xtree","extra", "extratree", "extra_tree"):
+        return ExtraTreeClassifier( max_features = "sqrt")
     elif learner_str.lower() in ("logistic", "logreg","lr"):
         return LogisticRegression(max_iter=1000)
     # elif learner_str.lower() in ("mlp","nn"):
@@ -72,7 +135,7 @@ def main():
     parser.add_argument("--constraint", type=str, default="EO",
                         help="Fairness constraint: DP, EO, or EP.")
     
-    parser.add_argument("--deploy", type=str, default="onnx",
+    parser.add_argument("--deploy", type=str, default=None,
                         help="Deployment format: 'onnx' or 'pickle'.")
     parser.add_argument("--save_path", type=str, default="my_mmm_fair_model",
                         help="Path prefix for saved model(s).")
@@ -80,12 +143,22 @@ def main():
         "--base_learner", type=str, default='lr',
         help="Override the default estimator, e.g. 'tree', 'logistic', etc."
     )
+    parser.add_argument(
+        "--report_type", type=str, default='table',
+        help="Override the default report output, e.g. 'table', 'console', 'html', etc."
+    )
+    parser.add_argument("--pareto", type=lambda x: x.lower() == 'true', default=False,
+                    help="Set to True to select theta from ensembles with Pareto optimal solutions (default: False)")
 
+    parser.add_argument("--test", type=str, default=None,
+                        help="Either path to a test CSV or a float fraction (e.g. 0.3) for train/test split. If not provided, no separate testing is done.")
     args = parser.parse_args()
-    dataset_name = args.dataset.lower()
+    dataset_name = None
+    if args.dataset is not None:
+        dataset_name = args.dataset.lower()
 
     # 1. Load data
-    if dataset_name.endswith(".csv"):
+    if dataset_name and dataset_name.endswith(".csv"):
         # -------------------------
         # Local CSV file fallback
         # -------------------------
@@ -122,7 +195,9 @@ def main():
             f"Please provide them in pairs."
         )
     
+    sensitives=[]
     for col, val in zip(args.prots, args.nprotgs):
+        sensitives.append(col)
         if col not in data.data.columns:
             raise ValueError(
                 f"Protected attribute '{col}' is not a valid column. "
@@ -149,30 +224,30 @@ def main():
                         f"Value '{val}' not found in column '{col}'. "
                         f"Unique values are: {unique_vals}"
                     )
-    saIndex = data.data[args.prots].to_numpy()
-    saValue = {attr: 0 for attr in args.prots}
-    # For each column i, set 1 if it equals the non-protected value, else 0
-    for i, iprots in enumerate(zip(saValue,args.nprotgs)):
-        if pd.api.types.is_numeric_dtype(data.data[col]):
-            if isinstance(parsed_value, tuple):
-                ((saIndex[:, i].astype(float) > parsed_value[0]) & (saIndex[:, i].astype(float) < parsed_value[1])).astype(int)
-            else:
-                saIndex[:, i] = (saIndex[:, i] == parsed_value).astype(int)
+    # saIndex = data.data[args.prots].to_numpy()
+    # saValue = {attr: 0 for attr in args.prots}
+    # # For each column i, set 1 if it equals the non-protected value, else 0
+    # for i, iprots in enumerate(zip(saValue,args.nprotgs)):
+    #     if pd.api.types.is_numeric_dtype(data.data[col]):
+    #         if isinstance(parsed_value, tuple):
+    #             ((saIndex[:, i].astype(float) > parsed_value[0]) & (saIndex[:, i].astype(float) < parsed_value[1])).astype(int)
+    #         else:
+    #             saIndex[:, i] = (saIndex[:, i] == parsed_value).astype(int)
             
-        else:
-            saIndex[:, i] = (saIndex[:, i] == iprots[1]).astype(int)
+    #     else:
+    #         saIndex[:, i] = (saIndex[:, i] == iprots[1]).astype(int)
     
     # By default, interpret 0 as 'protected'
     
 
-    mmm_params, pareto_bool = get_hparams(
+    mmm_params, _ = get_hparams(
         dataset_name=args.dataset,
         constraint=args.constraint,
         data=data,
     )
 
-    mmm_params["saIndex"] = saIndex
-    mmm_params["saValue"] = saValue
+    #mmm_params["saIndex"] = saIndex
+    #mmm_params["saValue"] = saValue
     
     if args.base_learner is not None:
         print(f"Loading MMM-Fair with base learner: {args.base_learner}")
@@ -189,37 +264,128 @@ def main():
     y = (y == pos_class).astype(int)
 
     # 4. Get feature matrix (some users do data.to_pred([...]) or data.to_features([...]))
-    X = data.to_pred(sensitive=saValue.keys())  # or however you define
+    X = data.to_pred(sensitive=sensitives)  # or however you define
 
-    # 5. Construct MMM_Fair
-    mmm_classifier = MMM_Fair(**mmm_params)
-    mmm_classifier.fit(X, y)
+    
+    #mmm_classifier = MMM_Fair(**mmm_params)
+
+    # 5. Check if test data or split given
+    if args.test is not None:
+        # Could be a file or a float
+        try:
+            split_frac = float(args.test)
+            if split_frac <= 0 or split_frac >= 1:
+                raise ValueError("Train/Test split fraction must be between 0 and 1.")
+            indices = np.arange(len(X))
+            X_train, X_test, y_train, y_test, id_train, id_test = train_test_split(X, y, indices, test_size=split_frac, random_state=42)    
+            
+            saIndex_train, saValue_train= build_sensitives(data.data.iloc[id_train], args.prots, args.nprotgs)
+            saIndex_test, _= build_sensitives(data.data.iloc[id_test], args.prots, args.nprotgs)
+            
+            mmm_params["saIndex"] = saIndex_train
+            mmm_params["saValue"] = saValue_train
+
+            # 6. Construct MMM_Fair
+            mmm_classifier = MMM_Fair(**mmm_params)
+            mmm_classifier.fit(X_train, y_train)
+
+        except ValueError:
+            # If it's not a float, treat it as a CSV path
+            test_df = pd.read_csv(args.test)
+            # Minimal numeric/categorical detection, build CSV instance
+            numeric_test = [col for col in test_df.columns if pd.api.types.is_numeric_dtype(test_df[col])]
+            cat_test = [col for col in test_df.columns if col not in numeric_test and col != args.target]
+            label_test = test_df[args.target]
+
+            data_test = CSV(test_df, numeric=numeric_test, categorical=cat_test, labels=label_test)            
+            
+            if not list(data.data.columns) == list(data_test.data.columns):
+                raise ValueError(
+                    "Mismatch between train and test columns!\n"
+                    f"Train columns: {list(df.columns)}\n"
+                    f"Test columns: {list(df_test.columns)}"
+                )
+            X_test = data_test.to_pred(sensitive=sensitives)
+            y_test = data_test.labels["label"].to_numpy()
+            #y_pred = mmm_classifier.predict(X_test)
+            #y_true=y_test
+            # Train on entire main data
+            saIndex, saValue= build_sensitives(data.data, args.prots, args.nprotgs)
+            saIndex_test, _= build_sensitives(data_test.data, args.prots, args.nprotgs)
+            
+            mmm_params["saIndex"] = saIndex
+            mmm_params["saValue"] = saValue
+            
+            # 6. Construct MMM_Fair
+            mmm_classifier = MMM_Fair(**mmm_params)
+            
+            mmm_classifier.fit(X, y)
+    else:
+        saIndex, saValue= build_sensitives(data.data, args.prots, args.nprotgs)
+        saIndex_test=saIndex
+        mmm_params["saIndex"] = saIndex
+        mmm_params["saValue"] = saValue
+        # 6. Construct MMM_Fair
+        mmm_classifier = MMM_Fair(**mmm_params)
+        mmm_classifier.fit(X, y)
+        #test on the training data
+        X_test, y_test= X, y
+
 
     # 6. Pareto setting
-    mmm_classifier.pareto = pareto_bool
+    mmm_classifier.pareto = args.pareto 
     mmm_classifier.update_theta(criteria="all")
 
     # 7. (Optional) FairBench reporting
-    y_pred = mmm_classifier.predict(X)
+    y_pred = mmm_classifier.predict(X_test)
     # If you only want the first protected col, do e.g. saIndex[:,0]
     # or otherwise combine them
-    for i in range(len(saValue)):
+    if args.report_type.lower()=="table":
+        rt=fb.export.ConsoleTable
+    elif args.report_type.lower()=="console":
+        rt=fb.export.Console
+    elif args.report_type.lower()=="html":
+        rt=fb.export.Html(horizontal=False, view=False)
+    else:
+        print(f"Report type {args.report_type} not supported in this version. Switching to table type reporting.")
+        rt=fb.export.ConsoleTable
+    for i in range(len(sensitives)):
         print("Reports generated for protected attribute ", mmm_classifier.sensitives[i])
-        sens = fb.categories(saIndex[:, i])
+        sens = fb.categories(saIndex_test[:, i])
         report = fb.reports.pairwise(
             predictions=y_pred,
-            labels=y,
+            labels=y_test,
             sensitive=sens
         )
-        #report.show(env=fb.export.ConsoleTable)
-        report.show(env=fb.export.Console)
-        html_text = report.show(fb.export.Html(horizontal=False, view=False)) 
+        
+        out=report.show(env=rt)
+        
 
     # 8. Deployment
+    if args.deploy not in ("onnx", "pickle"):
+        # If user didn't provide or gave something unrecognized => prompt
+        while True:
+            user_choice = input("\nNo valid deployment option provided.\n"
+                                "Enter '1' for ONNX, '2' for pickle, '3' to exit: ").strip()
+            if user_choice == '1':
+                args.deploy = "onnx"
+                break
+            elif user_choice == '2':
+                args.deploy = "pickle"
+                break
+            elif user_choice == '3':
+                print("Exiting without saving model.")
+                return
+            else:
+                print("Invalid input. Please try again (1, 2, or 3).")
+
+    # Now we have a recognized deploy format or user has chosen
     if args.deploy == "onnx":
-        convert_to_onnx(mmm_classifier, args.save_path, X)
-    else:
+        convert_to_onnx(mmm_classifier, args.save_path, X_full)
+        print(f"Model saved in ONNX format with prefix '{args.save_path}'")
+    elif args.deploy == "pickle":
         convert_to_pickle(mmm_classifier, args.save_path)
+        print(f"Model saved in pickle format as '{args.save_path}.pkl'")
 
 if __name__ == "__main__":
     main()

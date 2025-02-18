@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: mmm-fair
-Version: 0.3.0
+Version: 0.3.1
 Summary: A multi-objective multi-fairness boosting classifier
 Author-email: Arjun Roy <arjunroyihrpa@gmail.com>
 License:                                  Apache License
@@ -235,7 +235,7 @@ The original algorithm targeted Equalized Odds (a.k.a. Disparate Mistreatment). 
 
 #### We further improve the approach by:
 
-1.	Flexible Base Learners: Any scikit-learn estimator (e.g. DecisionTreeClassifier, LogisticRegression, etc.) can be used as the base learner.
+1.	Flexible Base Learners: Any scikit-learn estimator (e.g. DecisionTreeClassifier, LogisticRegression, ExtraTreeClassifier, etc.) can be used as the base learner.
 2.	Fairness-Weighted Alpha: The boosting weight (alpha) accounts for fairness metrics alongside classification error.
 3.	Dynamic Handling of Over-Boosted Samples: Reduces excessive emphasis on specific samples once fairness goals are partially met.
 
@@ -314,12 +314,31 @@ This package provides a script, train_and_deploy.py, which:
 
 Currently the fairness intervention only implemented for categorical groups. So if protected attribute is numerical e.g. "age" then for non-protected value i.e. --nprotgs provide a range like 30_60 as argument. 
 
+### Additional options
+
+If you want to select theta from Pareto optimal ensembles (default is False) set:  
+
+    --pareto True
+
+If you want to provide test data:  
+
+    --test 'your_test_file.csv'
+    
+Or just test split:  
+
+    --test 0.3
+    
+If you want change style (default is table, choose from {table, console, html}) of report displayed ([Check FairBench Library for more details](https://fairbench.readthedocs.io/material/visualization/)):
+
+    --report_type Console
+
+
 
 #### Result: Multiple ONNX files (one per boosting round) plus a model_params.npy inside a directory. It’s then zipped into a .zip archive for distribution or analysis.
 
 ### MAMMOth Toolkit Integration
 
-The ONNX output and model_params.npy are designed to integrate with the [MAMMOth](https://github.com/mammoth-eu/mammoth-toolkit-releases) or the demonstrator app from the [mammoth-commons](https://github.com/mammoth-eu/mammoth-toolkit-releases) project.
+For the bias exploration using [MAMMOth](https://mammoth-ai.eu) pipeline it is really important to select 'onnx' as the '--deploy' argument. The [ONNX](https://onnxruntime.ai) model accelerator and model_params.npy are used to integrate with the [MAMMOth-toolkit](https://github.com/mammoth-eu/mammoth-toolkit-releases) or the demonstrator app from the [mammoth-commons](https://github.com/mammoth-eu/mammoth-toolkit-releases) project.
 
 
 ### By providing the .zip archive, you can:
