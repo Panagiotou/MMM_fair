@@ -5,7 +5,7 @@ import shutil
 from skl2onnx import to_onnx
 # from skl2onnx.common.data_types import FloatTensorType  # Optional shape hints
 
-def convert_to_onnx(custom_model, output_path, X):
+def convert_to_onnx(custom_model, output_path, X, model_type='mmm_fair'):
     """
     Convert each weak estimator in a MMM_Fair ensemble to a separate ONNX file,
     and save additional parameters in a .npy file.
@@ -19,34 +19,61 @@ def convert_to_onnx(custom_model, output_path, X):
     assert custom_model.estimators_ is not None, "Model must be fitted before conversion."
 
     # Create directory to store ONNX + param files, e.g. "my_adult_model_dir"
-    model_dir = f"{output_path}_dir"
+    model_dir = f"{output_path}_{model_type}"
     os.makedirs(model_dir, exist_ok=True)
 
     # Possibly reduce X for shape inference
     sample_input = X[:1].astype(np.float32)
 
     # Convert each estimator to ONNX
-    onnx_models = []
-    for i, estimator in enumerate(custom_model.estimators_):
-        onnx_model = to_onnx(estimator, sample_input)
-        onnx_models.append(onnx_model)
-
-    # Save each ONNX file in model_dir
-    for i, onnx_model in enumerate(onnx_models):
-        onnx_file = os.path.join(model_dir, f"estimator_{i}.onnx")
+    if model_type.endswith("gbt"):
+        from sklearn.ensemble import HistGradientBoostingClassifier
+        from sklearn.utils.validation import check_is_fitted
+        
+        clf=HistGradientBoostingClassifier(max_iter=custom_model.max_iter)
+        clf._predictors=custom_model.all_estimators
+        fitted_attrs = [ v for v in vars(custom_model) if v.endswith("_") and not v.startswith("__") ]
+        for v in fitted_attrs:
+            clf.__dict__[v]=custom_model.__dict__[v]
+        clf.__dict__['_preprocessor']=custom_model.__dict__['_preprocessor']
+        clf.__dict__['_baseline_prediction']=custom_model.__dict__['_baseline_prediction']
+        clf.__dict__['_bin_mapper']=custom_model.__dict__['_bin_mapper']
+        check_is_fitted(clf)
+        onnx_file = os.path.join(model_dir, f"estimator_gbt.onnx")
         with open(onnx_file, "wb") as f:
             f.write(onnx_model.SerializeToString())
+        params = {
+            "fairobs": custom_model.fairobs,
+            "all_obs": custom_model.ob,
+            "theta": custom_model.theta,
+            "sensitives": custom_model.sensitives,
+            "pareto": list(custom_model.PF.keys()) if custom_model.PF else []
+        }
 
-    # Save additional MMM_Fair parameters in a .npy
-    # Adjust keys if needed
-    params = {
-        "n_classes": custom_model.n_classes_,
-        "classes": custom_model.classes_,
-        "alphas": custom_model.estimator_alphas_,
-        "theta": custom_model.theta,
-        "sensitives": custom_model.sensitives,
-        "pareto": list(custom_model.PF.keys()) if custom_model.PF else []
-    }
+    else:
+        onnx_models = []
+        for i, estimator in enumerate(custom_model.estimators_):
+            onnx_model = to_onnx(estimator, sample_input)
+            onnx_models.append(onnx_model)
+    
+        # Save each ONNX file in model_dir
+        for i, onnx_model in enumerate(onnx_models):
+            onnx_file = os.path.join(model_dir, f"estimator_{i}.onnx")
+            with open(onnx_file, "wb") as f:
+                f.write(onnx_model.SerializeToString())
+    
+        # Save additional MMM_Fair parameters in a .npy
+        # Adjust keys if needed
+        params = {
+            "fairobs": custom_model.fairobs,
+            "all_obs": custom_model.ob,
+            "n_classes": custom_model.n_classes_,
+            "classes": custom_model.classes_,
+            "alphas": custom_model.estimator_alphas_,
+            "theta": custom_model.theta,
+            "sensitives": custom_model.sensitives,
+            "pareto": list(custom_model.PF.keys()) if custom_model.PF else []
+        }
 
     params_file = os.path.join(model_dir, "model_params.npy")
     np.save(params_file, params, allow_pickle=True)

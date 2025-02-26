@@ -8,6 +8,7 @@ mmm_fair/deploy_utils.py
 mmm_fair/hyperparams.py
 mmm_fair/mammoth_csv.py
 mmm_fair/mmm_fair.py
+mmm_fair/mmm_fair_gb.py
 mmm_fair/train_and_deploy.py
 mmm_fair.egg-info/PKG-INFO
 mmm_fair.egg-info/SOURCES.txt

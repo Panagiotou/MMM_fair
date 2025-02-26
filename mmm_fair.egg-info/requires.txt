@@ -7,3 +7,5 @@ pandas>=2.2.3
 fairbench
 skl2onnx
 tqdm
+plotly
+onnxruntime

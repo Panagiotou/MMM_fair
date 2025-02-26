@@ -1,3 +1,5 @@
+# Author: Arjun Roy (arjun.roy@unibw.de, arjunroyihrpa@gmail.com) https://orcid.org/0000-0002-4279-9442 
+# Apache License Version 2.0
 from abc import ABCMeta, abstractmethod
 from copy import deepcopy
 import numpy as np
@@ -709,30 +711,35 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
                         )  # Remove dominated points
             return is_efficient
 
-        self.preference = preference
+        #self.preference = preference
         best_theta = 0
         if criteria.lower() == "fairness":
             objective = deepcopy(self.fairobs)
+            if len(preference)!= self.fairobs.shape[-1]:
+                preference = [1/self.fairobs.shape[-1] for i in range(self.fairobs.shape[-1])]
         else:
             objective = deepcopy(self.ob)
         # objective=np.round(objective,2)
         if self.pareto == False:
-            PF = {i: objective[i] for i in range(len(objective))}
+            PF = {i: objective[i] for i in range(len(objective)) if np.any(objective[i]==0)==False}
             F = np.array([objective[o] for o in range(len(objective))])
             self.PF = PF
         else:
             pf = is_pareto(objective)
-            PF = {i: objective[i] for i in range(len(pf)) if pf[i] == True}
+            PF = {i: objective[i] for i in range(len(pf)) if pf[i] == True and np.any(objective[i]==0)==False}
             F = np.array(list(PF.values()))
             self.PF = PF
 
-        weights = self.preference  ##Preference Weights
+        if self.preference is None or len(self.preference)!= objective.shape[-1]:
+            weights = preference  ##Preference Weights
+        else:
+            weights = self.preference
 
         best_theta, pseudo_weights = PseudoWeights(weights).do(
             F, return_pseudo_weights=True
         )
 
-        if self.preference == None:
+        if self.preference is None:
             sum_W = [sum((1 - pseudo_weights[w]) * F[w]) for w in range(len(PF))]
             best_theta = sum_W.index(min(sum_W))
 
@@ -782,13 +789,14 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         self.update_theta(criteria='fairness')
         if len(self.prot_attr)>2:
             plot3d(x=self.PF[:,0],y=self.PF[:,1],z=self.PF[:,2], weights=self.pseudo,
-                   criteria='Fairness',axis_names=self.prot_attr)
+                   criteria='Fairness',axis_names=self.sensitives)
         elif len(self.prot_attr)==2:
                 plot3d(x=self.PF[:,0],y=self.PF[:,1],z=np.zeros_like(self.PF[:,1]), weights=self.pseudo,
-                   criteria='Fairness',axis_names=self.prot_attr+'')
+                   criteria='Fairness',axis_names=self.sensitives+[''])
     
         else:
             print('Not a MMM-fair')
+        self.update_theta(criteria='all')
     def measure_fairness_for_visualization(self, data, labels, predictions):
 
         tp_protected = [0 for i in self.saIndex]

@@ -1,3 +1,5 @@
+# Author: Arjun Roy (arjun.roy@unibw.de, arjunroyihrpa@gmail.com) https://orcid.org/0000-0002-4279-9442 
+# SPDX-License-Identifier: BSD-3-Clause
 import argparse
 import numpy as np
 import pandas as pd
@@ -9,6 +11,7 @@ from sklearn.tree import DecisionTreeClassifier
 from .data_process import data_uci
 from .mammoth_csv import CSV
 from .mmm_fair import MMM_Fair
+from .mmm_fair_gb import MMM_Fair_GradientBoostedClassifier
 from .deploy_utils import convert_to_onnx, convert_to_pickle
 from .hyperparams import get_hparams  # The function that sets hyperparams or fallback
 from sklearn.tree import DecisionTreeClassifier
@@ -17,6 +20,20 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.tree import ExtraTreeClassifier
 from sklearn.model_selection import train_test_split
 
+
+def get_mmm_model(
+    classifier="MMM_Fair",
+    params={}):
+    if classifier.lower() in ["mmm_fair","mmm-fair","mmm"]:
+        return MMM_Fair(
+            **params
+        )
+    elif classifier.lower() in ["mmm_fair_gbt","mmm-fair-gbt","mmm_gbt", "mmm-gbt"]:
+        return MMM_Fair_GradientBoostedClassifier(
+            **params
+        )
+    else:
+        raise ValueError("Unknown classifier")
 
 
 def build_sensitives(
@@ -112,12 +129,16 @@ def parse_base_learner(learner_str):
 def main():
     parser = argparse.ArgumentParser(description="Train and Deploy MMM_Fair model")
 
+    parser.add_argument("--classifier", type=str, default='MMM_Fair',
+                        help="One of MMM_Fair (for original adaptive boosting version) or MMM_Fair_GBT (for gradient boosted trees)")
     parser.add_argument("--dataset", type=str, default=None,
                         help="Name of dataset or path to a local CSV file.")
     parser.add_argument("--target", type=str, default=None,
                         help="Label column if using known dataset or CSV.")
     parser.add_argument("--pos_Class", type=str, default=None,
                         help="Positive class Label if using known dataset or CSV.")
+    parser.add_argument("--n_learners", type=str, default=None,
+                        help="Number of estimators or maxiters for the ensemble.")
     parser.add_argument(
         "--prots", 
         nargs="+", 
@@ -152,8 +173,15 @@ def main():
 
     parser.add_argument("--test", type=str, default=None,
                         help="Either path to a test CSV or a float fraction (e.g. 0.3) for train/test split. If not provided, no separate testing is done.")
+    parser.add_argument("--early_stop", type=lambda x: x.lower() == 'true', default=False,
+                    help="Early stopping criteria for the GBT model")
+    
+    parser.add_argument("--moo_vis", type=lambda x: x.lower() == 'true', default=False,
+                    help="Set to True to visualize the Multi-objective plots solutions (default: False)")
     args = parser.parse_args()
     dataset_name = None
+    
+
     if args.dataset is not None:
         dataset_name = args.dataset.lower()
 
@@ -241,6 +269,7 @@ def main():
     
 
     mmm_params, _ = get_hparams(
+        classifier=args.classifier,
         dataset_name=args.dataset,
         constraint=args.constraint,
         data=data,
@@ -249,9 +278,16 @@ def main():
     #mmm_params["saIndex"] = saIndex
     #mmm_params["saValue"] = saValue
     
-    if args.base_learner is not None:
+    if args.base_learner is not None and args.classifier.lower() not in ["mmm_fair_gbt","mmm-fair-gbt","mmm_gbt", "mmm-gbt"]:
         print(f"Loading MMM-Fair with base learner: {args.base_learner}")
         mmm_params["estimator"] = parse_base_learner(args.base_learner)
+        if isinstance(args.n_learners, (str, int)) and str(args.n_learners).lstrip('-').isdigit():
+            mmm_params["n_estimators"]=int(args.n_learners)
+    else:
+        if isinstance(args.n_learners, (str, int)) and str(args.n_learners).lstrip('-').isdigit():
+            mmm_params["max_iter"]=int(args.n_learners)
+        if args.early_stop==True:
+            mmm_params["early_stopping"]=True
     # 3. Convert label array if needed
     y = data.labels["label"].to_numpy()
     if args.dataset.lower() == "adult":
@@ -277,7 +313,7 @@ def main():
             if split_frac <= 0 or split_frac >= 1:
                 raise ValueError("Train/Test split fraction must be between 0 and 1.")
             indices = np.arange(len(X))
-            X_train, X_test, y_train, y_test, id_train, id_test = train_test_split(X, y, indices, test_size=split_frac, random_state=42)    
+            X_train, X_test, y_train, y_test, id_train, id_test = train_test_split(X, y, indices, test_size=split_frac, random_state=42, stratify=y)    
             
             saIndex_train, saValue_train= build_sensitives(data.data.iloc[id_train], args.prots, args.nprotgs)
             saIndex_test, _= build_sensitives(data.data.iloc[id_test], args.prots, args.nprotgs)
@@ -286,7 +322,7 @@ def main():
             mmm_params["saValue"] = saValue_train
 
             # 6. Construct MMM_Fair
-            mmm_classifier = MMM_Fair(**mmm_params)
+            mmm_classifier = get_mmm_model(classifier=args.classifier, params=mmm_params)    #MMM_Fair(**mmm_params)
             mmm_classifier.fit(X_train, y_train)
 
         except ValueError:
@@ -317,7 +353,7 @@ def main():
             mmm_params["saValue"] = saValue
             
             # 6. Construct MMM_Fair
-            mmm_classifier = MMM_Fair(**mmm_params)
+            mmm_classifier = get_mmm_model(classifier=args.classifier, params=mmm_params) 
             
             mmm_classifier.fit(X, y)
     else:
@@ -326,7 +362,7 @@ def main():
         mmm_params["saIndex"] = saIndex
         mmm_params["saValue"] = saValue
         # 6. Construct MMM_Fair
-        mmm_classifier = MMM_Fair(**mmm_params)
+        mmm_classifier = get_mmm_model(classifier=args.classifier, params=mmm_params) 
         mmm_classifier.fit(X, y)
         #test on the training data
         X_test, y_test= X, y
@@ -334,6 +370,7 @@ def main():
 
     # 6. Pareto setting
     mmm_classifier.pareto = args.pareto 
+    #if args.classifier not in ["mmm_fair_gbt","mmm-fair-gbt","mmm_gbt", "mmm-gbt"]:
     mmm_classifier.update_theta(criteria="all")
 
     # 7. (Optional) FairBench reporting
@@ -344,8 +381,8 @@ def main():
         rt=fb.export.ConsoleTable
     elif args.report_type.lower()=="console":
         rt=fb.export.Console
-    elif args.report_type.lower()=="html":
-        rt=fb.export.Html(horizontal=False, view=False)
+    #elif args.report_type.lower()=="html":
+    #    rt=fb.export.HtmlTable
     else:
         print(f"Report type {args.report_type} not supported in this version. Switching to table type reporting.")
         rt=fb.export.ConsoleTable
@@ -361,6 +398,8 @@ def main():
         out=report.show(env=rt)
         
 
+    if args.moo_vis:
+        mmm_classifier.see_pareto()
     # 8. Deployment
     if args.deploy not in ("onnx", "pickle"):
         # If user didn't provide or gave something unrecognized => prompt
@@ -381,7 +420,7 @@ def main():
 
     # Now we have a recognized deploy format or user has chosen
     if args.deploy == "onnx":
-        convert_to_onnx(mmm_classifier, args.save_path, X_full)
+        convert_to_onnx(mmm_classifier, args.save_path, X,args.classifier)
         print(f"Model saved in ONNX format with prefix '{args.save_path}'")
     elif args.deploy == "pickle":
         convert_to_pickle(mmm_classifier, args.save_path)
