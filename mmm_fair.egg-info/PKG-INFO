@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: mmm-fair
-Version: 0.4.0
+Version: 0.4.3
 Summary: A multi-objective multi-fairness boosting classifier
 Author-email: Arjun Roy <arjunroyihrpa@gmail.com>
 License:                                  Apache License
@@ -223,6 +223,7 @@ Requires-Dist: tqdm
 Requires-Dist: plotly
 Requires-Dist: onnxruntime
 
+![MMM-Fair Logo](https://raw.githubusercontent.com/arjunroyihrpa/MMM_fair/main/images/mmm-fair.png)
 ### MMM-Fair is a multi-objective, fairness-aware boosting classifier originally inspired by the paper: "Multi-fairness Under Class-Imbalance"
 https://link.springer.com/chapter/10.1007/978-3-031-18840-4_21
 
@@ -401,7 +402,7 @@ Or just test split:
 
     --test 0.3
     
-If you want change style (default is table, choose from {table, console, html}) of report displayed ([Check FairBench Library for more details](https://fairbench.readthedocs.io/material/visualization/)):
+If you want change style (default is table, choose from {table, console}) of report displayed ([Check FairBench Library for more details](https://fairbench.readthedocs.io/material/visualization/)):
 
     --report_type Console
 
