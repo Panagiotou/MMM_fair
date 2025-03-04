@@ -1,4 +1,4 @@
-![MMM-Fair Logo](https://raw.githubusercontent.com/arjunroyihrpa/MMM_fair/main/images/mmm_fair_logo.png)
+![MMM-Fair Logo](https://raw.githubusercontent.com/arjunroyihrpa/MMM_fair/main/images/mmm-fair.png)
 ### MMM-Fair is a multi-objective, fairness-aware boosting classifier originally inspired by the paper: "Multi-fairness Under Class-Imbalance"
 https://link.springer.com/chapter/10.1007/978-3-031-18840-4_21
 
