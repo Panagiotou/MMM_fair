@@ -16,7 +16,7 @@ def convert_to_onnx(custom_model, output_path, X, model_type='mmm_fair'):
     :param X:            A sample input array for shape inference.
     """
     # Ensure the model is fitted
-    assert custom_model.estimators_ is not None, "Model must be fitted before conversion."
+    assert len(custom_model.all_estimators)>0, "Model must be fitted before conversion."
 
     # Create directory to store ONNX + param files, e.g. "my_adult_model_dir"
     model_dir = f"{output_path}_{model_type}"
@@ -26,7 +26,7 @@ def convert_to_onnx(custom_model, output_path, X, model_type='mmm_fair'):
     sample_input = X[:1].astype(np.float32)
 
     # Convert each estimator to ONNX
-    if model_type.endswith("gbt"):
+    if model_type.lower().endswith("gbt"):
         from sklearn.ensemble import HistGradientBoostingClassifier
         from sklearn.utils.validation import check_is_fitted
         

@@ -1,6 +1,7 @@
 # Author: Arjun Roy (arjun.roy@unibw.de, arjunroyihrpa@gmail.com) https://orcid.org/0000-0002-4279-9442 
 # Apache License Version 2.0
 from abc import ABCMeta, abstractmethod
+import textwrap
 from copy import deepcopy
 import numpy as np
 import sklearn
@@ -135,7 +136,7 @@ class BaseWeightBoosting(six.with_metaclass(ABCMeta, BaseEnsemble)):
             self.conf_scores = []
 
         # Clear any previous fit results
-        self.estimators_ = []
+        self.all_estimators = []
 
         self.estimator_alphas_ = np.zeros(self.n_estimators + 1, dtype=np.float64)
         self.estimator_fairness_ = np.ones(self.n_estimators + 1, dtype=np.float64)
@@ -155,6 +156,7 @@ class BaseWeightBoosting(six.with_metaclass(ABCMeta, BaseEnsemble)):
         T = self.n_estimators
         self.ob = []
         self.fairobs = []
+        self.feat_obs = []
         progress_bar = tqdm(range(T), desc="MMM_Fair Boosting", unit="round")
         #iboost=-1
         #while iboost < T:
@@ -176,7 +178,7 @@ class BaseWeightBoosting(six.with_metaclass(ABCMeta, BaseEnsemble)):
                 break
 
             self.ob.append([cumulative_loss, balanced_loss, max(fairness)])
-            self.fairobs.append(fairness)
+            self.feat_obs.append(fairness)
             if error == 0.5:
                 print("Bad Estimator")
                 break
@@ -212,6 +214,7 @@ class BaseWeightBoosting(six.with_metaclass(ABCMeta, BaseEnsemble)):
             old_weights_sum = np.sum(sample_weight)
 
         self.ob = np.array(self.ob)
+        self.feat_obs = np.array(self.feat_obs)
         self.fairobs = np.array(self.fairobs)
 
         if self.debug:
@@ -220,7 +223,7 @@ class BaseWeightBoosting(six.with_metaclass(ABCMeta, BaseEnsemble)):
         # self.estimator_alphas_ = self.estimator_alphas_[:self.theta  ]
 
         if self.debug:
-            print("total #weak learners = " + str(len(self.estimators_)))
+            print("total #weak learners = " + str(len(self.all_estimators)))
             self.get_confidence_scores(X)
 
         return self
@@ -327,7 +330,7 @@ class BaseWeightBoosting(six.with_metaclass(ABCMeta, BaseEnsemble)):
         -------
         feature_importances_ : array, shape = [n_features]
         """
-        if self.estimators_ is None or len(self.estimators_) == 0:
+        if self.all_estimators is None or len(self.all_estimators) == 0:
             raise ValueError(
                 "Estimator not fitted, " "call `fit` before `feature_importances_`."
             )
@@ -337,7 +340,7 @@ class BaseWeightBoosting(six.with_metaclass(ABCMeta, BaseEnsemble)):
             return (
                 sum(
                     weight * clf.feature_importances_
-                    for weight, clf in zip(self.estimator_alphas_, self.estimators_)
+                    for weight, clf in zip(self.estimator_alphas_, self.all_estimators)
                 )
                 / norm
             )
@@ -484,7 +487,7 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         self.cost_non_protected_positive = [1 for i in self.saValue]
         self.cost_protected_negative = [1 for i in self.saValue]
         self.cost_non_protected_negative = [1 for i in self.saValue]
-        self.estimators_ = None
+        self.all_estimators = []
         self.estimator_alphas_ = None
         self.classes_ = None
         self.n_classes_ = None
@@ -565,130 +568,174 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         return self._boost_discrete(iboost, X, y, sample_weight, random_state)
 
     def calculate_fairness(self, data, labels, predictions):
-        # TODO: this function needs optimization by employing the numpy structures
-        tp_protected = [0 for i in self.saValue]
-        tn_protected = [0 for i in self.saValue]
-        fp_protected = [0 for i in self.saValue]
-        fn_protected = [0 for i in self.saValue]
-
-        tp_non_protected = [0 for i in self.saValue]
-        tn_non_protected = [0 for i in self.saValue]
-        fp_non_protected = [0 for i in self.saValue]
-        fn_non_protected = [0 for i in self.saValue]
-
+        # Initialize counts for protected vs. non-protected for each sensitive attribute
+        tp_protected = [0 for _ in self.saValue]
+        tn_protected = [0 for _ in self.saValue]
+        fp_protected = [0 for _ in self.saValue]
+        fn_protected = [0 for _ in self.saValue]
+    
+        tp_non_protected = [0 for _ in self.saValue]
+        tn_non_protected = [0 for _ in self.saValue]
+        fp_non_protected = [0 for _ in self.saValue]
+        fn_non_protected = [0 for _ in self.saValue]
+    
+        # 1) Count TP, TN, FP, FN for each sensitive dimension
         for idx, val in enumerate(data):
             for i in range(len(self.saValue)):
-                # con=True
+                # Determine if sample i is "protected" or "non-protected"
                 if isinstance(self.saValue[self.sensitives[i]], list):
-                    if (
-                        self.saIndex[idx][i] <= self.saValue[self.sensitives[i]][0]
-                        or self.saIndex[idx][i] >= self.saValue[self.sensitives[i]][1]
-                    ):
-                        con = True
-                    else:
-                        con = False
+                    # e.g., threshold = [lower, upper]
+                    con = (
+                        val[i] <= self.saValue[self.sensitives[i]][0]
+                        or val[i] >= self.saValue[self.sensitives[i]][1]
+                    )
                 elif isinstance(self.saValue[self.sensitives[i]], float):
-                    if self.saIndex[idx][i] <= self.saValue[self.sensitives[i]]:
-                        con = True
-                    elif self.saIndex[idx][i] > self.saValue[self.sensitives[i]]:
-                        con = False
+                    # e.g., threshold = 2.5
+                    con = val[i] <= self.saValue[self.sensitives[i]]
                 else:
-                    if self.saIndex[idx][i] == self.saValue[self.sensitives[i]]:
-                        con = True
-                    elif self.saIndex[idx][i] != self.saValue[self.sensitives[i]]:
-                        con = False
-                if con == True:  # protrcted population
-                    if labels[idx] == predictions[idx]:  # correctly classified
+                    # e.g., threshold = 1 (int) or "Male" (str)
+                    con = (val[i] == self.saValue[self.sensitives[i]])
+    
+                # Update correct / incorrect counts
+                if con:  # Protected population
+                    if labels[idx] == predictions[idx]:
                         if labels[idx] == 1:
                             tp_protected[i] += 1
                         else:
                             tn_protected[i] += 1
-                    # misclassified
                     else:
                         if labels[idx] == 1:
                             fn_protected[i] += 1
                         else:
                             fp_protected[i] += 1
-
-                elif con == False:
-                    # correctly classified
+                else:     # Non-protected
                     if labels[idx] == predictions[idx]:
                         if labels[idx] == 1:
                             tp_non_protected[i] += 1
                         else:
                             tn_non_protected[i] += 1
-                    # misclassified
                     else:
                         if labels[idx] == 1:
                             fn_non_protected[i] += 1
                         else:
                             fp_non_protected[i] += 1
-
-        # tpr_protected = [0 for i in self.saIndex]
-        # tnr_protected = [0 for i in self.saIndex]
-        # tpr_non_protected = [0 for i in self.saIndex]
-        # tnr_non_protected = [0 for i in self.saIndex]
-        cost = []
+    
+        # 2) Compute fairness metrics
+        slack = 1e-10  # To avoid division by zero
         fair_cost, eq_odds = [], []
-        lists = ""
-        slack=10**(-10) ##to avoid division by zero
+        dps, eps, eos = [], [], []
+    
         for i in range(len(self.saValue)):
-            tpr_protected = tp_protected[i] / (tp_protected[i] + fn_protected[i] + slack)
-            tpr_non_protected = tp_non_protected[i] / (
-                tp_non_protected[i] + fn_non_protected[i] + slack
+            # Group sizes (helpful if a group is effectively empty)
+            prot_count = (
+                tp_protected[i] + tn_protected[i] + fp_protected[i] + fn_protected[i]
             )
-
-            tnr_protected = tn_protected[i] / (tn_protected[i] + fp_protected[i] + slack)
-            tnr_non_protected = tn_non_protected[i] / (
-                tn_non_protected[i] + fp_non_protected[i] + slack
+            nonprot_count = (
+                tp_non_protected[i]
+                + tn_non_protected[i]
+                + fp_non_protected[i]
+                + fn_non_protected[i]
             )
-            ppr_protected = (tp_protected[i]+fp_protected[i]) / (tp_protected[i] + fn_protected[i]+tn_protected[i] + fp_protected[i] + slack)
-            ppr_non_protected = (tp_non_protected[i]+ fp_non_protected[i]) / (
-                tp_non_protected[i] + fn_non_protected[i] + tn_non_protected[i] + fp_non_protected[i] + slack
-            )
-
+    
+            # If an entire group is empty, we can skip or force that group’s difference to 0
+            if prot_count < 1e-9 and nonprot_count < 1e-9:
+                # No protected or non-protected samples
+                tpr_protected = 0.0
+                tpr_non_protected = 0.0
+                tnr_protected = 0.0
+                tnr_non_protected = 0.0
+                ppr_protected = 0.0
+                ppr_non_protected = 0.0
+            elif prot_count < 1e-9:
+                # Protected group is empty
+                tpr_protected = 0.0
+                tnr_protected = 0.0
+                ppr_protected = 0.0
+                # Non-protected is valid
+                tpr_non_protected = tp_non_protected[i] / (tp_non_protected[i] + fn_non_protected[i] + slack)
+                tnr_non_protected = tn_non_protected[i] / (tn_non_protected[i] + fp_non_protected[i] + slack)
+                ppr_non_protected = (tp_non_protected[i] + fp_non_protected[i]) / (
+                    tp_non_protected[i] + fn_non_protected[i] 
+                    + tn_non_protected[i] + fp_non_protected[i] + slack
+                )
+            elif nonprot_count < 1e-9:
+                # Non-protected group is empty
+                tpr_non_protected = 0.0
+                tnr_non_protected = 0.0
+                ppr_non_protected = 0.0
+                # Protected is valid
+                tpr_protected = tp_protected[i] / (tp_protected[i] + fn_protected[i] + slack)
+                tnr_protected = tn_protected[i] / (tn_protected[i] + fp_protected[i] + slack)
+                ppr_protected = (tp_protected[i] + fp_protected[i]) / (
+                    tp_protected[i] + fn_protected[i]
+                    + tn_protected[i] + fp_protected[i] + slack
+                )
+            else:
+                # Both groups have at least 1 sample
+                tpr_protected = tp_protected[i] / (tp_protected[i] + fn_protected[i] + slack)
+                tnr_protected = tn_protected[i] / (tn_protected[i] + fp_protected[i] + slack)
+                ppr_protected = (tp_protected[i] + fp_protected[i]) / (
+                    tp_protected[i] + fn_protected[i] + tn_protected[i] + fp_protected[i] + slack
+                )
+    
+                tpr_non_protected = tp_non_protected[i] / (tp_non_protected[i] + fn_non_protected[i] + slack)
+                tnr_non_protected = tn_non_protected[i] / (tn_non_protected[i] + fp_non_protected[i] + slack)
+                ppr_non_protected = (tp_non_protected[i] + fp_non_protected[i]) / (
+                    tp_non_protected[i] + fn_non_protected[i] + tn_non_protected[i] + fp_non_protected[i] + slack
+                )
+    
+            # 3) Differences
             diff_tpr = tpr_non_protected - tpr_protected
             diff_tnr = tnr_non_protected - tnr_protected
             diff_ppr = ppr_non_protected - ppr_protected
-            if self.constraints=="DP":
+    
+            # 4) Clamp differences to avoid huge or infinite changes (e.g., if extremely small slack)
+            diff_tpr = np.clip(diff_tpr, -1.0, 1.0)
+            diff_tnr = np.clip(diff_tnr, -1.0, 1.0)
+            diff_ppr = np.clip(diff_ppr, -1.0, 1.0)
+    
+            dps.append(diff_ppr)
+            eps.append(diff_tpr)
+            eos.append(max(diff_tpr, diff_tnr))
+    
+            # 5) Add fairness cost(s)
+            if self.constraints == "DP":
                 fair_cost.append(abs(diff_ppr))
-            elif self.constraints=="EP":
+            elif self.constraints == "EP":
                 fair_cost.append(abs(diff_tpr))
-            else:
+            else:  # "EO"
                 fair_cost.append(max(abs(diff_tpr), abs(diff_tnr)))
+    
             eq_odds.append(abs(diff_tpr) + abs(diff_tnr))
-            cost.append(str(diff_tpr))
-            cost.append(str(diff_tnr))
-
+    
+            # 6) Update cost arrays for next iteration (used in _boost_discrete)
             if self.constraints in ["EP", "EO"]:
                 self.cost_protected_negative[i] = 1
                 self.cost_non_protected_negative[i] = 1
-                if diff_tpr >=0:
+                if diff_tpr >= 0:
                     self.cost_protected_positive[i] = 1 + diff_tpr
-                elif diff_tpr < 0:
-                    self.cost_non_protected_positive[i] = 1 #+ abs(diff_tpr)
-    
-                #if self.constraints=="EO":
+                else:
+                    self.cost_non_protected_positive[i] = 1
                 if diff_tnr > 0:
                     self.cost_protected_negative[i] = 1 + diff_tnr
                 elif diff_tnr < 0:
                     self.cost_non_protected_negative[i] = 1 + abs(diff_tnr)
-                        
-            elif self.constraints=="DP":
-                if diff_ppr >=0:
+    
+            elif self.constraints == "DP":
+                if diff_ppr >= 0:
                     self.cost_protected[i] = 1 + diff_ppr
                     self.cost_non_protected[i] = 1
-                    
-                elif diff_ppr<0:
-                    self.cost_protected[i] = 1 
-                    self.cost_non_protected[i] = 1 #+ abs(diff_ppr)
-                    
-
+                else:
+                    self.cost_protected[i] = 1
+                    self.cost_non_protected[i] = 1
+    
+        # 7) Keep track for multi-objective visualization
+        self.fairobs.append([max(dps), max(eps), max(eos)])
+    
         return fair_cost, eq_odds
-
     def update_theta(
         self,
-        criteria: Literal["all", "fairness"] = "all",
+        criteria: Literal["all", "fairness","fairdefs"] = "all",
         preference=[0.33, 0.34, 0.33],
     ):
         def is_pareto(costs, maximise=False):
@@ -714,9 +761,11 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         #self.preference = preference
         best_theta = 0
         if criteria.lower() == "fairness":
+            objective = deepcopy(self.feat_obs)
+            if len(preference)!= self.feat_obs.shape[-1]:
+                preference = [1/self.feat_obs.shape[-1] for i in range(self.feat_obs.shape[-1])]
+        elif criteria.lower() == "fairdefs":
             objective = deepcopy(self.fairobs)
-            if len(preference)!= self.fairobs.shape[-1]:
-                preference = [1/self.fairobs.shape[-1] for i in range(self.fairobs.shape[-1])]
         else:
             objective = deepcopy(self.ob)
         # objective=np.round(objective,2)
@@ -752,14 +801,30 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         from plotly.subplots import make_subplots
         def plot2d(x,y,axis_names):
             pass
-        def plot3d(x = [1, 2, 3, 4, 5],y = [2, 3, 1, 4, 5],z = [3, 1, 2, 5, 4],weights = [1,2,3,4,5],criteria='all',axis_names=['X','Y','Z']):
+        def plot3d(x = [1, 2, 3, 4, 5],y = [2, 3, 1, 4, 5],z = [3, 1, 2, 5, 4],theta=[1,2,3,4,5],criteria='all',axis_names=['X','Y','Z'], title="3D Scatter Plot of Pareto front.", desc=(
+                    "🔹 This plot visualizes our data in 3D.<br>"
+                    "🔹 Each point's position is determined by X, Y, Z coordinates.<br>"
+                    "🔹 Marker color is blue by default, but could represent categories.<br>"
+                    "🔹 Hover over points to see info about the associated **theta** (ensemble pointer).<br>"
+                    "🔹 Theta can be used as preferences to update the model:<br>"
+                    "➡ <b>Example: model.update_theta(theta=my_preferred_theta)</b>"
+            "<br> _________________________________________________________ <br> "
+                ) ):
             # Create the figure
-            hidden_data=[str(np.around(weights[i],2)) for i in range(len(weights))]
+            title_wrap=100
+            wrapped_title = "<br>".join(textwrap.wrap(title, width=title_wrap))
+            hidden_data=[f'Theta: {theta[i]}' for i in range(len(theta))]
             fig = make_subplots(rows=1, cols=1, specs=[[{'type': 'scatter3d'}]])
-            
+            color_values = np.array(x) + np.array(y) + np.array(z)
+            color_label = "Sum of losses (darker better)"
             # Add 3D scatter plot
-            fig.add_trace(go.Scatter3d(x=x, y=y, z=z, mode='markers', marker=dict(color='blue'), 
-                                       name='Points',text=hidden_data, customdata=hidden_data ), row=1, col=1)
+            fig.add_trace(go.Scatter3d(x=x, y=y, z=z, mode='markers', marker=dict(size=8,
+                                                color=color_values,  # Color based on the chosen attribute
+                                                colorscale="Viridis",  # Try 'Plasma', 'Cividis', 'Inferno', etc.
+                                                showscale=True,
+                                                colorbar=dict(title=color_label),
+                                            ), name='Points',text=hidden_data, customdata=hidden_data ), 
+                          row=1, col=1)
             
             # Define callback function for selection event
             def update_point(trace, points, selector):
@@ -771,32 +836,63 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
             fig.data[0].on_selection(update_point)
             
             # Update layout
-            fig.update_layout(title=criteria+'-objectives Pareto Plot - Select Points to Return Vector',
-                             scene=dict(
+            fig.update_layout(title=dict(
+                                    text=f"{criteria}-objectives<br>{wrapped_title}",
+                                    #x=0.5,  # Center the title
+                                    #y=1.2,  # Push title down slightly to prevent clipping
+                                    font=dict(size=18),
+                                ),
+                              scene=dict(
                                         xaxis_title='X:'+axis_names[0],
                                         yaxis_title='Y:'+ axis_names[1],
                                         zaxis_title='Z:'+ axis_names[2]
                                     ),
-                                    width=1000,  # Set the width of the plot
+                             annotations=[
+                                            go.layout.Annotation(
+                                            showarrow=False,
+                                            text=desc,
+                                            x=1.02,  # text to the right outside the plot
+                                            y=1.02,
+                                            xref="paper",
+                                            yref="paper",
+                                            font=dict(size=14, color="black"),
+                                            bgcolor="rgba(255, 255, 255, 0.85)",  
+                                            bordercolor="black",
+                                            borderwidth=2,
+                                            borderpad=10,
+                                            align="left",
+                                        )
+                                                                    ],
+                                    width=1300,  # width of the plot
                                     height=700 )
             
             # Show plot
             fig.show()
         
-        self.update_theta(criteria='all')
-        plot3d(x=self.PF[:,0],y=self.PF[:,1],z=self.PF[:,2], weights=self.pseudo,
-               axis_names=['Acc.','Balanc. Acc', 'MMM-fair'])
-        self.update_theta(criteria='fairness')
-        if len(self.prot_attr)>2:
-            plot3d(x=self.PF[:,0],y=self.PF[:,1],z=self.PF[:,2], weights=self.pseudo,
-                   criteria='Fairness',axis_names=self.sensitives)
-        elif len(self.prot_attr)==2:
-                plot3d(x=self.PF[:,0],y=self.PF[:,1],z=np.zeros_like(self.PF[:,1]), weights=self.pseudo,
-                   criteria='Fairness',axis_names=self.sensitives+[''])
+        PF=np.array([self.ob[i] for i in range(len(self.ob))])
+        thetas=np.arange(len(self.ob))
+        title=f"3D Scatter Plot. Showing various trade-off points between Accuracy, Balanced Accuracy, and Maximum violation of {self.constraints} fairness among protected attributes."
+        plot3d(x=PF[:,0],y=PF[:,1],z=PF[:,2], theta=thetas, criteria="Multi",
+               axis_names=['Acc.','Balanc. Acc', 'MMM-fair'],title=title)
+        PF=np.array([self.fairobs[i] for i in range(len(self.fairobs))])
+        title=f"3D Scatter Plot. Showing various trade-off points between maximum violation of Demopgraphic Parity, Equal Opportunity, and Equalized odds fairness for the given set of protected attributes."
+        plot3d(x=PF[:,0],y=PF[:,1],z=PF[:,2], theta=thetas, criteria="Multi-definitions",
+               axis_names=['DP','EqOpp', 'EqOdd'],title=title)
+        if len(self.sensitives)>0:
+            #self.theta=None
+            #self.update_theta(criteria='fairness')
+            PF=np.array([self.feat_obs[i] for i in range(len(self.feat_obs))])
+            title=f"3D Scatter Plot. Showing various trade-off points between violation of {self.constraints} fairness among the protected attributes {self.sensitives}."
+            if PF.shape[-1]>2:
+                plot3d(x=PF[:,0],y=PF[:,1],z=PF[:,2], theta=thetas, 
+                       criteria='Multi-attribute',axis_names=self.sensitives,title=title)
+            elif PF.shape[-1]==2:
+                    plot3d(x=PF[:,0],y=PF[:,1],z=np.zeros_like(PF[:,1]), theta=thetas,
+                       criteria='Multi-attribute',axis_names=self.sensitives+[''],title=title)
+        
+            else:
+                print('Not a MMM-fair')   
     
-        else:
-            print('Not a MMM-fair')
-        self.update_theta(criteria='all')
     def measure_fairness_for_visualization(self, data, labels, predictions):
 
         tp_protected = [0 for i in self.saIndex]
@@ -908,11 +1004,19 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
     def _update_sample_weight(self, alpha, proba, cost_vector):
         """
         Given a cost vector, multiply sample_weight[idx] by:
-          max(cost_vector) * exp(alpha * max(proba[idx]))
+            max(cost_vector) * exp(alpha * max(proba))
+        But to avoid overflow/NaN issues, clamp the exponent and the cost value.
         """
-        # Notice proba[idx][0] and proba[idx][1] usage is the same
-        #sample_weight[idx] *= 
-        return max(cost_vector) * np.exp(alpha * max(proba))
+        c = max(cost_vector)
+        # Ensure the cost is never negative
+        c = max(0.0, c)  
+    
+        # Clip exponent to avoid overflow in np.exp
+        exponent = alpha * max(proba)
+        exponent = np.clip(exponent, -30.0, 30.0)  # or your own range
+    
+        # Return the safe product
+        return c * np.exp(exponent)
     
     def _boost_discrete(self, iboost, X, y, sample_weight, random_state):
         
@@ -1027,6 +1131,7 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
             # cumulative_balanced_error = 1 - sklearn.metrics.balanced_accuracy_score(y, y_predict)
             fairness = [1 for i in self.saValue]
             eq_ods = [1 for i in self.saValue]
+            self.fairobs.append([1 for i in ['dp','ep','eo']])
 
         """
         For fast training -to reduce actual runtime the loss functions are measured using tp, fp, fn, and tn.
@@ -1084,6 +1189,18 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
                         )
 
                     sample_weight[idx] *=self._update_sample_weight(alpha, proba[idx], cost_vector)
+            '''
+            if np.any(np.isnan(sample_weight)) or np.any(np.isinf(sample_weight)):
+                print(f"[Boost {iboost}] Found NaN or Inf in sample_weight, fixing them.")
+                sample_weight = np.nan_to_num(sample_weight, nan=1e-12, posinf=1e12, neginf=1e-12)
+        
+            sum_sw = np.sum(sample_weight)
+            if sum_sw <= 0.0 or np.isnan(sum_sw) or np.isinf(sum_sw):
+                print(f"[Boost {iboost}] Sum of sample_weight is {sum_sw}. Re-initializing uniformly.")
+                sample_weight[:] = 1.0 / len(sample_weight)
+            else:
+                sample_weight /= sum_sw
+            '''
                         
             
 
@@ -1202,7 +1319,7 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         pred = sum(
             (estimator.predict(X) == classes).T * w
             for estimator, w in zip(
-                self.estimators_[: self.theta], self.estimator_alphas_[: self.theta]
+                self.all_estimators[: self.theta], self.estimator_alphas_[: self.theta]
             )
         )
         pred /= self.estimator_alphas_[: self.theta].sum()
@@ -1241,7 +1358,7 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         proba = sum(
             estimator.predict_proba(X) * w
             for estimator, w in zip(
-                self.estimators_[: self.theta], self.estimator_alphas_[: self.theta]
+                self.all_estimators[: self.theta], self.estimator_alphas_[: self.theta]
             )
         )
 

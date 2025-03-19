@@ -19,8 +19,85 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 from sklearn.tree import ExtraTreeClassifier
 from sklearn.model_selection import train_test_split
+from mmm_fair.viz_trade_offs import plot3d
 
+default_data_setting = {
+    'bank': {'prots': ['marital', 'age'], 'nprotgs': ['married', '30_60']},
+    'adult': {'prots': ['race', 'sex'], 'nprotgs': ['White', 'Male']},
+    # Add other dataset mappings here...
+}
 
+def generate_reports(
+    args, 
+    sensitives, 
+    mmm_classifier, 
+    saIndex_test, 
+    y_pred, 
+    y_test,
+    html=False
+):
+    """
+    Generate pairwise fairness reports for different protected attributes.
+
+    Parameters
+    ----------
+    args : Namespace or object with 'report_type' attribute
+        Contains command-line or user-specified arguments.
+    sensitives : list
+        A list of the protected attribute names or identifiers.
+    mmm_classifier : object
+        An object that has a 'sensitives' attribute (e.g., a trained model 
+        with stored sensitive attribute information).
+    saIndex_test : ndarray
+        A 2D NumPy array (or similar) of sensitive attribute index data 
+        for the test set. Shape: (n_samples, n_protected_attributes).
+    y_pred : array-like
+        Predictions for the test set.
+    y_test : array-like
+        True labels for the test set.
+
+    Returns
+    -------
+    None
+        Prints or displays fairness reports depending on the report type.
+    """
+    # Decide which reporting type to use
+    
+    if html:
+        rt = fb.export.HtmlTable       
+    else:
+        if args.report_type.lower() == "table":
+            rt = fb.export.ConsoleTable
+        elif args.report_type.lower() == "console":
+            rt = fb.export.Console
+        # elif args.report_type.lower() == "html":
+        #     rt = fb.export.HtmlTable
+        else:
+            print(f"Report type '{args.report_type}' not supported in this version. "
+                  "Switching to table type reporting.")
+            rt = fb.export.ConsoleTable
+
+    # Generate and display reports for each protected attribute
+    out=''
+    for i in range(len(sensitives)):
+        print("Reports generated for protected attribute:", mmm_classifier.sensitives[i])
+        # Convert sensitive attribute column into a Fairlearn-friendly format
+        sens = fb.categories(saIndex_test[:, i])
+        
+        # Create the fairness report
+        report = fb.reports.pairwise(
+            predictions=y_pred,
+            labels=y_test,
+            sensitive=sens
+        )
+        
+        # Show/print the report
+        if html:
+            out += report.show(env=rt)
+        else:
+            report.show(env=rt)
+    return out
+    
 def get_mmm_model(
     classifier="MMM_Fair",
     params={}):
@@ -125,60 +202,9 @@ def parse_base_learner(learner_str):
     #     return  MLPClassifier()
     else:
         raise ValueError(f"Unrecognized base_learner: {learner_str}")
-        
-def main():
-    parser = argparse.ArgumentParser(description="Train and Deploy MMM_Fair model")
 
-    parser.add_argument("--classifier", type=str, default='MMM_Fair',
-                        help="One of MMM_Fair (for original adaptive boosting version) or MMM_Fair_GBT (for gradient boosted trees)")
-    parser.add_argument("--dataset", type=str, default=None,
-                        help="Name of dataset or path to a local CSV file.")
-    parser.add_argument("--target", type=str, default=None,
-                        help="Label column if using known dataset or CSV.")
-    parser.add_argument("--pos_Class", type=str, default=None,
-                        help="Positive class Label if using known dataset or CSV.")
-    parser.add_argument("--n_learners", type=str, default=None,
-                        help="Number of estimators or maxiters for the ensemble.")
-    parser.add_argument(
-        "--prots", 
-        nargs="+", 
-        default=[], 
-        help="List of protected attribute names (e.g. --prots race sex age)."
-    )
-    # Similarly, a list of non-protected values for each attribute:
-    parser.add_argument(
-        "--nprotgs", 
-        nargs="+", 
-        default=[], 
-        help="List of non-protected attribute values, matching order of --prots."
-    )
 
-    parser.add_argument("--constraint", type=str, default="EO",
-                        help="Fairness constraint: DP, EO, or EP.")
-    
-    parser.add_argument("--deploy", type=str, default=None,
-                        help="Deployment format: 'onnx' or 'pickle'.")
-    parser.add_argument("--save_path", type=str, default="my_mmm_fair_model",
-                        help="Path prefix for saved model(s).")
-    parser.add_argument(
-        "--base_learner", type=str, default='lr',
-        help="Override the default estimator, e.g. 'tree', 'logistic', etc."
-    )
-    parser.add_argument(
-        "--report_type", type=str, default='table',
-        help="Override the default report output, e.g. 'table', 'console', 'html', etc."
-    )
-    parser.add_argument("--pareto", type=lambda x: x.lower() == 'true', default=False,
-                    help="Set to True to select theta from ensembles with Pareto optimal solutions (default: False)")
-
-    parser.add_argument("--test", type=str, default=None,
-                        help="Either path to a test CSV or a float fraction (e.g. 0.3) for train/test split. If not provided, no separate testing is done.")
-    parser.add_argument("--early_stop", type=lambda x: x.lower() == 'true', default=False,
-                    help="Early stopping criteria for the GBT model")
-    
-    parser.add_argument("--moo_vis", type=lambda x: x.lower() == 'true', default=False,
-                    help="Set to True to visualize the Multi-objective plots solutions (default: False)")
-    args = parser.parse_args()
+def train(args):
     dataset_name = None
     
 
@@ -223,49 +249,66 @@ def main():
             f"Please provide them in pairs."
         )
     
-    sensitives=[]
-    for col, val in zip(args.prots, args.nprotgs):
-        sensitives.append(col)
-        if col not in data.data.columns:
-            raise ValueError(
-                f"Protected attribute '{col}' is not a valid column. "
-                f"Available columns: {list(data.data.columns)}"
-            )
-        else:
-            if pd.api.types.is_numeric_dtype(data.data[col]):
-                parsed_value = parse_numeric_input(val)
-                if isinstance(parsed_value, tuple): 
-                    if parsed_value[0] < data.data[col].min() or parsed_value[1] > data.data[col].max():
-                        raise ValueError(
-                            f"{col} range '{val}' is outside dataset range [{data.data[col].min()}, {data.data[col].max()}]."
-                        )
-                else:  # If it's a single numeric value
-                    if parsed_value < data.data[col].min() or parsed_value > data.data[col].max():
-                        raise ValueError(
-                            f"Numeric value '{val}' is outside dataset range [{data.data[col].min()}, {data.data[col].max()}]."
-                        )
-                    
-            else:
-                unique_vals = data.data[col].unique()
-                if val not in unique_vals:
-                    raise ValueError(
-                        f"Value '{val}' not found in column '{col}'. "
-                        f"Unique values are: {unique_vals}"
-                    )
-    # saIndex = data.data[args.prots].to_numpy()
-    # saValue = {attr: 0 for attr in args.prots}
-    # # For each column i, set 1 if it equals the non-protected value, else 0
-    # for i, iprots in enumerate(zip(saValue,args.nprotgs)):
-    #     if pd.api.types.is_numeric_dtype(data.data[col]):
-    #         if isinstance(parsed_value, tuple):
-    #             ((saIndex[:, i].astype(float) > parsed_value[0]) & (saIndex[:, i].astype(float) < parsed_value[1])).astype(int)
-    #         else:
-    #             saIndex[:, i] = (saIndex[:, i] == parsed_value).astype(int)
-            
-    #     else:
-    #         saIndex[:, i] = (saIndex[:, i] == iprots[1]).astype(int)
+    sensitives = []
     
-    # By default, interpret 0 as 'protected'
+    for col_index, (col, val) in enumerate(zip(args.prots, args.nprotgs)):
+    
+        # **Step 1: Check if col is in dataset, replace if needed**
+        if col not in data.data.columns:
+            dataset_name = args.dataset.lower()
+            
+            if dataset_name in default_data_setting:
+                default_prots = default_data_setting[dataset_name]['prots']
+                default_nprotgs = default_data_setting[dataset_name]['nprotgs']
+    
+                # Find a relevant protected attribute not already in args.prots
+                for default_col, default_nprot in zip(default_prots, default_nprotgs):
+                    if default_col not in args.prots:  # Only use if it's not already in the user's input
+                        col = default_col  # Replace missing column with a relevant one
+                        val = default_nprot  # Load corresponding nprotgs
+                        print(f"DEBUG: Replaced missing protected attribute '{args.prots[col_index]}' with default '{col}', using '{val}' as non-protected value.")
+                        args.prots[col_index] = col  # Update the list
+                        args.nprotgs[col_index] = val  # Update nprotgs accordingly
+                        
+                        break  # Stop searching once we find a replacement
+    
+            else:
+                # If dataset is not known in default_data_setting, fall back to first categorical column
+                categorical_cols = data.data.select_dtypes(include=['object', 'category']).columns
+                if len(categorical_cols) == 0:
+                    raise ValueError("No categorical columns available to replace the missing protected attribute.")
+    
+                col = categorical_cols[0]  # Replace with first categorical column
+                args.prots[col_index] = col  # Update the list with the new column name
+                print(f"DEBUG: Replaced missing protected attribute with '{col}'.")
+    
+        sensitives.append(col)
+    
+        # **Step 2: Process numerical columns**
+        if pd.api.types.is_numeric_dtype(data.data[col]):
+            parsed_value = parse_numeric_input(val)
+            if isinstance(parsed_value, tuple): 
+                if parsed_value[0] < data.data[col].min() or parsed_value[1] > data.data[col].max():
+                    raise ValueError(
+                        f"{col} range '{val}' is outside dataset range [{data.data[col].min()}, {data.data[col].max()}]."
+                    )
+            else:  # If it's a single numeric value
+                if parsed_value < data.data[col].min() or parsed_value > data.data[col].max():
+                    raise ValueError(
+                        f"Numeric value '{val}' is outside dataset range [{data.data[col].min()}, {data.data[col].max()}]."
+                    )
+    
+        # **Step 3: Process categorical columns**
+        else:
+            unique_vals = data.data[col].unique()
+            if val not in unique_vals:
+                if len(unique_vals) == 0:
+                    raise ValueError(f"No unique values found in column '{col}'. Cannot replace '{val}'.")
+    
+                val = unique_vals[0]  # Replace with first unique value
+                print(f"DEBUG: Replaced '{args.nprotgs[col_index]}' with first unique value '{val}' in column '{col}'.")
+                args.nprotgs[col_index] = val  # Update the list with the new value
+                
     
 
     mmm_params, _ = get_hparams(
@@ -373,44 +416,76 @@ def main():
     #if args.classifier not in ["mmm_fair_gbt","mmm-fair-gbt","mmm_gbt", "mmm-gbt"]:
     mmm_classifier.update_theta(criteria="all")
 
+    return mmm_classifier, X_test, y_test, saIndex_test, sensitives
+
     # 7. (Optional) FairBench reporting
-    y_pred = mmm_classifier.predict(X_test)
+    
     # If you only want the first protected col, do e.g. saIndex[:,0]
     # or otherwise combine them
-    if args.report_type.lower()=="table":
-        rt=fb.export.ConsoleTable
-    elif args.report_type.lower()=="console":
-        rt=fb.export.Console
-    #elif args.report_type.lower()=="html":
-    #    rt=fb.export.HtmlTable
-    else:
-        print(f"Report type {args.report_type} not supported in this version. Switching to table type reporting.")
-        rt=fb.export.ConsoleTable
-    for i in range(len(sensitives)):
-        print("Reports generated for protected attribute ", mmm_classifier.sensitives[i])
-        sens = fb.categories(saIndex_test[:, i])
-        report = fb.reports.pairwise(
-            predictions=y_pred,
-            labels=y_test,
-            sensitive=sens
-        )
-        
-        out=report.show(env=rt)
+    
+
+def report_card(args, mmm_classifier, SI, sensitives, xtest, ytest, card=True, html=False):
+    ypred=mmm_classifier.predict(xtest)
+    if card:
+        report = generate_reports(
+                            args=args,
+                            sensitives=sensitives,
+                            mmm_classifier=mmm_classifier,
+                            saIndex_test=SI,
+                            y_pred=ypreds,
+                            y_test=ytest,
+                            html=html
+                        )
+
         
 
     if args.moo_vis:
         mmm_classifier.see_pareto()
+        while True:
+            user_choice = input(
+                "\nIf you wish to update the Model:\n"
+                "Enter the Theta index (e.g., 0, 1, 2...) you chose from the Pareto plots,\n"
+                "or enter 'exit' to keep the current model and exit: "
+            ).strip()
+        
+            if user_choice.lower() == "exit":
+                print("Exiting with the current model without updating further.")
+                break  # Exit the loop
+        
+            try:
+                theta = int(user_choice)
+                if 0 <= theta < len(mmm_classifier.ob):  # Ensure theta is within valid range
+                    mmm_classifier.update_theta(theta=theta)
+                    print(f"Model updated with Theta index {theta}.")
+                    ypred=mmm_classifier.predict(xtest)
+                    generate_reports(
+                        args=args,
+                        sensitives=sensitives,
+                        mmm_classifier=mmm_classifier,
+                        saIndex_test=saIndex_test,
+                        y_pred=y_pred,
+                        y_test=y_test
+                    )
+                    break  # Exit loop after successful update
+                else:
+                    print(f"Invalid index! Please enter a valid Theta index (0 to {len(mmm_classifier.ob) - 1}).")
+            except ValueError:
+                print("Invalid input! Please enter a valid integer Theta index or type 'exit' to quit.")
+
+    return None
+
+def deploy(stype, mmm_classifier, X, clf_name,path):
     # 8. Deployment
-    if args.deploy not in ("onnx", "pickle"):
+    if stype.lower() not in ("onnx", "pickle"):
         # If user didn't provide or gave something unrecognized => prompt
         while True:
             user_choice = input("\nNo valid deployment option provided.\n"
                                 "Enter '1' for ONNX, '2' for pickle, '3' to exit: ").strip()
             if user_choice == '1':
-                args.deploy = "onnx"
+                stype = "onnx"
                 break
             elif user_choice == '2':
-                args.deploy = "pickle"
+                stype = "pickle"
                 break
             elif user_choice == '3':
                 print("Exiting without saving model.")
@@ -419,12 +494,73 @@ def main():
                 print("Invalid input. Please try again (1, 2, or 3).")
 
     # Now we have a recognized deploy format or user has chosen
-    if args.deploy == "onnx":
-        convert_to_onnx(mmm_classifier, args.save_path, X,args.classifier)
-        print(f"Model saved in ONNX format with prefix '{args.save_path}'")
-    elif args.deploy == "pickle":
-        convert_to_pickle(mmm_classifier, args.save_path)
-        print(f"Model saved in pickle format as '{args.save_path}.pkl'")
+    if stype.lower() == "onnx":
+        convert_to_onnx(mmm_classifier, path, X,clf_name)
+        print(f"Model saved in ONNX format with prefix '{path}'")
+    elif stype.lower() == "pickle":
+        convert_to_pickle(mmm_classifier, path)
+        print(f"Model saved in pickle format as '{path}.pkl'")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Train and Deploy MMM_Fair model")
+
+    parser.add_argument("--classifier", type=str, default='MMM_Fair',
+                        help="One of MMM_Fair (for original adaptive boosting version) or MMM_Fair_GBT (for gradient boosted trees)")
+    parser.add_argument("--dataset", type=str, default=None,
+                        help="Name of dataset or path to a local CSV file.")
+    parser.add_argument("--target", type=str, default=None,
+                        help="Label column if using known dataset or CSV.")
+    parser.add_argument("--pos_Class", type=str, default=None,
+                        help="Positive class Label if using known dataset or CSV.")
+    parser.add_argument("--n_learners", type=str, default=None,
+                        help="Number of estimators or maxiters for the ensemble.")
+    parser.add_argument(
+        "--prots", 
+        nargs="+", 
+        default=[], 
+        help="List of protected attribute names (e.g. --prots race sex age)."
+    )
+    # Similarly, a list of non-protected values for each attribute:
+    parser.add_argument(
+        "--nprotgs", 
+        nargs="+", 
+        default=[], 
+        help="List of non-protected attribute values, matching order of --prots."
+    )
+
+    parser.add_argument("--constraint", type=str, default="EO",
+                        help="Fairness constraint: DP, EO, or EP.")
+    
+    parser.add_argument("--deploy", type=str, default=None,
+                        help="Deployment format: 'onnx' or 'pickle'.")
+    parser.add_argument("--save_path", type=str, default="my_mmm_fair_model",
+                        help="Path prefix for saved model(s).")
+    parser.add_argument(
+        "--base_learner", type=str, default='lr',
+        help="Override the default estimator, e.g. 'tree', 'logistic', etc."
+    )
+    parser.add_argument(
+        "--report_type", type=str, default='table',
+        help="Override the default report output, e.g. 'table', 'console', 'html', etc."
+    )
+    parser.add_argument("--pareto", type=lambda x: x.lower() == 'true', default=False,
+                    help="Set to True to select theta from ensembles with Pareto optimal solutions (default: False)")
+
+    parser.add_argument("--test", type=str, default=None,
+                        help="Either path to a test CSV or a float fraction (e.g. 0.3) for train/test split. If not provided, no separate testing is done.")
+    parser.add_argument("--early_stop", type=lambda x: x.lower() == 'true', default=False,
+                    help="Early stopping criteria for the GBT model")
+    
+    parser.add_argument("--moo_vis", type=lambda x: x.lower() == 'true', default=False,
+                    help="Set to True to visualize the Multi-objective plots solutions (default: False)")
+    args = parser.parse_args()
+    
+    mmm_classifier, X_test, y_test, saIndex_test, sensitives=train(args)
+    #y_pred = mmm_classifier.predict(X_test)
+    plots=report_card(args, mmm_classifier, saIndex_test, sensitives, X_test, y_test)
+    deploy(args.deploy,mmm_classifier, X_test, args.classifier,args.save_path)
+    
 
 if __name__ == "__main__":
     main()

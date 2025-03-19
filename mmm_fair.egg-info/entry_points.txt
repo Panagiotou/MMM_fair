@@ -1,0 +1,2 @@
+[console_scripts]
+mmm-fair-chat = mmm_fair.mchat.mmm_app:main

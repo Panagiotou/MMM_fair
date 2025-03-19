@@ -1,12 +1,13 @@
 # Author: Arjun Roy (arjun.roy@unibw.de, arjunroyihrpa@gmail.com) https://orcid.org/0000-0002-4279-9442 
 # Apache License Version 2.0
+import textwrap
 import numpy as np
 from time import time
 from functools import partial
 from numbers import Integral, Real
 import itertools
 from fairbench import v2 as fb
-
+from tqdm import tqdm 
 ##sklearn ensemble
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.ensemble._hist_gradient_boosting.grower import TreeGrower
@@ -390,6 +391,7 @@ class MMM_Fair_GradientBoostedClassifier(HistGradientBoostingClassifier):
         self.mmm_loss_ = []
         self.all_estimators=[]
         self.ob=[]
+        self.feat_obs=[]
         self.fairobs=[]
         self.theta=-1
         self.pseudo=None
@@ -738,7 +740,8 @@ class MMM_Fair_GradientBoostedClassifier(HistGradientBoostingClassifier):
         )
     
     
-        for iteration in range(begin_at_stage, self.max_iter):
+        progress_bar = tqdm(range(begin_at_stage, self.max_iter), desc="MMM_Fair gradboost", unit="round")
+        for iteration in progress_bar:#range(begin_at_stage, self.max_iter):
             if self.verbose >= 2:
                 iteration_start_time = time()
                 print(
@@ -940,20 +943,25 @@ class MMM_Fair_GradientBoostedClassifier(HistGradientBoostingClassifier):
                         sensitive=sens
                     )
                     report_dict=report.show(env=fb.export.ToDict)
+                    dp=report_dict['depends'][6]['depends'][1]['value']['value']
+                    ep=report_dict['depends'][6]['depends'][2]['value']['value']
+                    eo=max(report_dict['depends'][6]['depends'][2]['value']['value'],
+                                      report_dict['depends'][6]['depends'][3]['value']['value'])
                     if self.constraint.lower()=='dp':
-                        o3.append(report_dict['depends'][6]['depends'][1]['value']['value'])
+                        o3.append(dp)
                     elif self.constraint.lower()=='ep':
-                        o3.append(report_dict['depends'][6]['depends'][2]['value']['value'])
+                        o3.append(ep)
                     elif self.constraint.lower()=='eo':
-                        o3.append(max(report_dict['depends'][6]['depends'][2]['value']['value'],
-                                      report_dict['depends'][6]['depends'][3]['value']['value']))
+                        o3.append(eo)
                     else:
                         o3.append(0.99)
                 self.ob.append([o1, o2, max(o3)])
-                self.fairobs.append(o3)    
+                self.feat_obs.append(o3) 
+                self.fairobs.append([dp,ep,eo])
                 
                 
         self.ob = np.array(self.ob)
+        self.feat_obs= np.array(self.feat_obs)
         self.fairobs = np.array(self.fairobs)
         del self._in_fit  # hard delete so we're sure it can't be used anymore
         return self
@@ -961,7 +969,7 @@ class MMM_Fair_GradientBoostedClassifier(HistGradientBoostingClassifier):
     
     def update_theta(
         self,
-        criteria: Literal["all", "fairness"] = "all",
+        criteria: Literal["all", "fairness","fairdefs"] = "all",
         preference=[0.33, 0.34, 0.33],
         theta=None ##for bruteforce theta update
     ):
@@ -989,9 +997,11 @@ class MMM_Fair_GradientBoostedClassifier(HistGradientBoostingClassifier):
             #self.preference = preference
             best_theta = 0
             if criteria.lower() == "fairness":
+                objective = deepcopy(self.feat_obs)
+                if len(preference)!= self.feat_obs.shape[-1]:
+                    preference = [1/self.feat_obs.shape[-1] for i in range(self.feat_obs.shape[-1])]
+            elif criteria.lower() == "fairdefs":
                 objective = deepcopy(self.fairobs)
-                if len(preference)!= self.fairobs.shape[-1]:
-                    preference = [1/self.fairobs.shape[-1] for i in range(self.fairobs.shape[-1])]
             else:
                 objective = deepcopy(self.ob)
             # objective=np.round(objective,2)
@@ -1070,14 +1080,30 @@ class MMM_Fair_GradientBoostedClassifier(HistGradientBoostingClassifier):
         from plotly.subplots import make_subplots
         def plot2d(x,y,axis_names):
             pass
-        def plot3d(x = [1, 2, 3, 4, 5],y = [2, 3, 1, 4, 5],z = [3, 1, 2, 5, 4],weights = [1,2,3,4,5],criteria='all',axis_names=['X','Y','Z']):
+        def plot3d(x = [1, 2, 3, 4, 5],y = [2, 3, 1, 4, 5],z = [3, 1, 2, 5, 4],theta=[1,2,3,4,5],criteria='all',axis_names=['X','Y','Z'], title="3D Scatter Plot of Pareto front.", desc=(
+                    "🔹 This plot visualizes our data in 3D.<br>"
+                    "🔹 Each point's position is determined by X, Y, Z coordinates.<br>"
+                    "🔹 Marker color is blue by default, but could represent categories.<br>"
+                    "🔹 Hover over points to see info about the associated **theta** (ensemble pointer).<br>"
+                    "🔹 Theta can be used as preferences to update the model:<br>"
+                    "➡ <b>Example: model.update_theta(theta=my_preferred_theta)</b>"
+            "<br> _________________________________________________________ <br> "
+                ) ):
             # Create the figure
-            hidden_data=[str(np.around(weights[i],2)) for i in range(len(weights))]
+            title_wrap=100
+            wrapped_title = "<br>".join(textwrap.wrap(title, width=title_wrap))
+            hidden_data=[f'Theta: {theta[i]}' for i in range(len(theta))]
             fig = make_subplots(rows=1, cols=1, specs=[[{'type': 'scatter3d'}]])
-            
+            color_values = np.array(x) + np.array(y) + np.array(z)
+            color_label = "Sum of losses (darker better)"
             # Add 3D scatter plot
-            fig.add_trace(go.Scatter3d(x=x, y=y, z=z, mode='markers', marker=dict(color='blue'), 
-                                       name='Points',text=hidden_data, customdata=hidden_data ), row=1, col=1)
+            fig.add_trace(go.Scatter3d(x=x, y=y, z=z, mode='markers', marker=dict(size=8,
+                                                color=color_values,  # Color based on the chosen attribute
+                                                colorscale="Viridis",  # Try 'Plasma', 'Cividis', 'Inferno', etc.
+                                                showscale=True,
+                                                colorbar=dict(title=color_label),
+                                            ), name='Points',text=hidden_data, customdata=hidden_data ), 
+                          row=1, col=1)
             
             # Define callback function for selection event
             def update_point(trace, points, selector):
@@ -1089,13 +1115,34 @@ class MMM_Fair_GradientBoostedClassifier(HistGradientBoostingClassifier):
             fig.data[0].on_selection(update_point)
             
             # Update layout
-            fig.update_layout(title=criteria+'-objectives Pareto Plot - Select Points to Return Vector',
-                             scene=dict(
+            fig.update_layout(title=dict(
+                                    text=f"{criteria}-objectives<br>{wrapped_title}",
+                                    #x=0.5,  # Center the title
+                                    #y=1.2,  # Push title down slightly to prevent clipping
+                                    font=dict(size=18),
+                                ),
+                              scene=dict(
                                         xaxis_title='X:'+axis_names[0],
                                         yaxis_title='Y:'+ axis_names[1],
                                         zaxis_title='Z:'+ axis_names[2]
                                     ),
-                                    width=1000,  # Set the width of the plot
+                             annotations=[
+                                            go.layout.Annotation(
+                                            showarrow=False,
+                                            text=desc,
+                                            x=1.02,  # text to the right outside the plot
+                                            y=1.02,
+                                            xref="paper",
+                                            yref="paper",
+                                            font=dict(size=14, color="black"),
+                                            bgcolor="rgba(255, 255, 255, 0.85)",  
+                                            bordercolor="black",
+                                            borderwidth=2,
+                                            borderpad=10,
+                                            align="left",
+                                        )
+                                                                    ],
+                                    width=1300,  # width of the plot
                                     height=700 )
             
             # Show plot
@@ -1103,26 +1150,29 @@ class MMM_Fair_GradientBoostedClassifier(HistGradientBoostingClassifier):
         
         #self.update_theta(criteria='all')
         PF=np.array([self.ob[i] for i in range(len(self.ob))])
-        plot3d(x=PF[:,0],y=PF[:,1],z=PF[:,2], weights=self.pseudo,
-               axis_names=['Acc.','Balanc. Acc', 'MMM-fair'])
-        
+        thetas=np.arange(len(self.ob))
+        title=f"3D Scatter Plot. Showing various trade-off points between Accuracy, Balanced Accuracy, and Maximum violation of {self.constraint} fairness among protected attributes."
+        plot3d(x=PF[:,0],y=PF[:,1],z=PF[:,2], theta=thetas, criteria="Multi",
+               axis_names=['Acc.','Balanc. Acc', 'MMM-fair'],title=title)
+        PF=np.array([self.fairobs[i] for i in range(len(self.fairobs))])
+        title=f"3D Scatter Plot. Showing various trade-off points between maximum violation of Demopgraphic Parity, Equal Opportunity, and Equalized odds fairness for the given set of protected attributes."
+        plot3d(x=PF[:,0],y=PF[:,1],z=PF[:,2], theta=thetas, criteria= "Multi-definitions",
+               axis_names=['DP','EqOpp', 'EqOdd'],title=title)
         if len(self.sensitives)>0:
             #self.theta=None
             #self.update_theta(criteria='fairness')
-            PF=np.array([self.fairobs[i] for i in range(len(self.fairobs))])
+            PF=np.array([self.feat_obs[i] for i in range(len(self.feat_obs))])
+            title=f"3D Scatter Plot. Showing various trade-off points between violation of {self.constraint} fairness among the protected attributes {self.sensitives}."
             if PF.shape[-1]>2:
-                plot3d(x=PF[:,0],y=PF[:,1],z=PF[:,2], weights=self.pseudo,
-                       criteria='Fairness',axis_names=self.sensitives)
+                plot3d(x=PF[:,0],y=PF[:,1],z=PF[:,2], theta=thetas,
+                       criteria='Multi-attribute',axis_names=self.sensitives,title=title)
             elif PF.shape[-1]==2:
-                    plot3d(x=PF[:,0],y=PF[:,1],z=np.zeros_like(PF[:,1]), weights=self.pseudo,
-                       criteria='Fairness',axis_names=self.sensitives+[''])
+                    plot3d(x=PF[:,0],y=PF[:,1],z=np.zeros_like(PF[:,1]), theta=thetas,
+                       criteria='Multi-attribute',axis_names=self.sensitives+[''],title=title)
         
             else:
                 print('Not a MMM-fair')   
     
     
-
-
-
 
 
