@@ -217,6 +217,9 @@ For the bias exploration using [MAMMOth](https://mammoth-ai.eu) pipeline it is r
 
 “[Multi-Fairness Under Class-Imbalance](https://link.springer.com/chapter/10.1007/978-3-031-18840-4_21),”  Roy, Arjun, Vasileios Iosifidis, and Eirini Ntoutsi. International Conference on Discovery Science. Cham: Springer Nature Switzerland, 2022.
 
+### Maintainer: Arjun Roy (arjunroyihrpa@gmail.com)
+
+### Contributors: Swati Swati (swati17293@gmail.com)
 
 ### License & Contributing
 
