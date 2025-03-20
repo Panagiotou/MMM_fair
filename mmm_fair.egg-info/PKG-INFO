@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: mmm-fair
-Version: 1.0.0
+Version: 1.0.1
 Summary: A multi-objective multi-fairness boosting classifier
 Author-email: Arjun Roy <arjunroyihrpa@gmail.com>, Swati Swati <swati17293@gmail.com>
 License:                                  Apache License
@@ -224,6 +224,7 @@ Requires-Dist: plotly
 Requires-Dist: onnxruntime
 Requires-Dist: Flask
 Requires-Dist: Flask-Session
+Dynamic: license-file
 
 ![MMM-Fair Logo](https://raw.githubusercontent.com/arjunroyihrpa/MMM_fair/main/images/mmm-fair.png)
 ### MMM-Fair is a multi-objective, fairness-aware boosting classifier originally inspired by the paper: "Multi-fairness Under Class-Imbalance"
@@ -266,6 +267,17 @@ Requires Python 3.11+.
 Dependencies: numpy, scikit-learn, tqdm, pymoo, pandas, ucimlrepo, skl2onnx, etc.
 
 ---
+## Usage
+The mmm-fair package provides two different usage possibilities. One is a chat based on a web-based UI (specially tailored new user, with even non-technical abckground), and the other is command line based (for ML scientist, engineers, etc.)
+
+### Usage Overview (mmm-chat)
+Right now its still terminal dependent (soon will release a destop app). So after installing one needs to bash
+
+    mmm-fair-chat
+and then in any browser copy paste:
+
+    http://127.0.0.1:5000
+Then start chating with the interactive web app to get your MMM-Fair AI model.
 
 ## Usage Overview (AdaBoost-Style)
 
@@ -444,6 +456,9 @@ For the bias exploration using [MAMMOth](https://mammoth-ai.eu) pipeline it is r
 
 “[Multi-Fairness Under Class-Imbalance](https://link.springer.com/chapter/10.1007/978-3-031-18840-4_21),”  Roy, Arjun, Vasileios Iosifidis, and Eirini Ntoutsi. International Conference on Discovery Science. Cham: Springer Nature Switzerland, 2022.
 
+### Maintainer: Arjun Roy (arjunroyihrpa@gmail.com)
+
+### Contributors: Swati Swati (swati17293@gmail.com)
 
 ### License & Contributing
 

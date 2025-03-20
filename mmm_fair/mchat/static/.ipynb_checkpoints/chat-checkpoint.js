@@ -9,11 +9,16 @@ document.addEventListener("DOMContentLoaded", function(){
     const thetaBtn = document.getElementById("theta-btn");
     const saveBtn = document.getElementById("save-btn");
 
-    // Function to render messages in the chatbox
-    function renderMessage(sender, text, isTyping = false){
+    // Function to render messages in the chatbox with animations
+    function renderMessage(sender, text, isTyping = false) {
         let messageDiv = document.createElement("div");
-        messageDiv.classList.add("message", sender);
-        chatBox.appendChild(messageDiv);
+        messageDiv.classList.add("message", sender); // Adds "user" or "bot" class
+
+        let messageWrapper = document.createElement("div");
+        messageWrapper.classList.add("message-wrapper");
+        messageWrapper.appendChild(messageDiv);
+        
+        chatBox.appendChild(messageWrapper);
         chatBox.scrollTop = chatBox.scrollHeight;  // Auto-scroll
 
         if (isTyping) {
@@ -81,6 +86,9 @@ document.addEventListener("DOMContentLoaded", function(){
                 console.log("DEBUG: Loading Plot2D from", data.plot_fair_url);
                 plot2dBox.innerHTML = `<iframe src="${data.plot_fair_url}" width="100%" height="400px" frameborder="0"></iframe>`;
             }
+
+            // Auto-scroll to new messages
+            chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: "smooth" });
         })
         .catch(error => console.error("Error:", error));
     }
@@ -104,9 +112,7 @@ document.addEventListener("DOMContentLoaded", function(){
         })
         .catch(error => console.error("Error resetting chat:", error));
     });
-    // Saving Model as onnx for deployment
-    
-    
+
     // Handle Theta Selection and Model Update
     thetaBtn.addEventListener("click", function(){
         let thetaValue = thetaInput.value.trim();
@@ -121,15 +127,15 @@ document.addEventListener("DOMContentLoaded", function(){
             body: JSON.stringify({theta: thetaValue})
         })
         .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert(`Model updated successfully with Theta ${thetaValue}`);
-        } else {
-            alert(`Error updating model: ${data.error}`);
-        }
-    })
-    .catch(error => console.error("Error updating model:", error));
-    });  // <-- FIXED: Properly closed the function
+        .then(data => {
+            if (data.success) {
+                alert(`Model updated successfully with Theta ${thetaValue}`);
+            } else {
+                alert(`Error updating model: ${data.error}`);
+            }
+        })
+        .catch(error => console.error("Error updating model:", error));
+    });
 
     // Handle Save Model Button
     saveBtn.addEventListener("click", function(){

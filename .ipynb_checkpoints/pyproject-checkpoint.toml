@@ -6,12 +6,16 @@ build-backend = "setuptools.build_meta"
 include = ["mmm_fair*"]
 exclude = ["images", "images.*", "tests", "tests.*"]
 
+# Ensure package data (HTML templates, static files) is included
+[tool.setuptools.package-data]
+"mmm_fair.mchat" = ["templates/*.html", "static/*"]
+
 [project.scripts]
 mmm-fair-chat = "mmm_fair.mchat.mmm_app:main"
 
 [project]
 name = "mmm-fair"
-version = "1.0.0"
+version = "1.0.1"
 description = "A multi-objective multi-fairness boosting classifier"
 readme = "README.md"
 authors = [
@@ -21,7 +25,6 @@ authors = [
 license = { file = "LICENSE" }
 keywords = ["fairness", "boosting", "classification", "machine-learning"]
 requires-python = ">=3.11"
-
 
 dependencies = [
   "numpy>=1.26.4",
@@ -38,7 +41,6 @@ dependencies = [
   "Flask",
   "Flask-Session"
 ]
-
 
 [project.urls]
 Homepage= "https://github.com/arjunroyihrpa/MMM_fair"

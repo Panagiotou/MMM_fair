@@ -38,17 +38,18 @@ app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
 # Define chat arguments
-CHAT_ARGS = [
+CHAT_ARGS = [  
     "classifier",
     "dataset",
     "prots",
     "nprotgs",
     "target",
     "pos_Class",
-    "n_learners",
     "constraint",
-    "save_as",
-    "moo_vis"
+    
+    "n_learners",
+    #"save_as",
+    #"moo_vis"
 ]
 
 default_args = {
@@ -183,7 +184,7 @@ def ask_chat():
 
     session["chat_history"] = chat_history
     session["user_args"] = user_args
-    return jsonify({"chat_history": chat_history[-1:]})
+    return jsonify({"chat_history": chat_history[-2:]})
 
 
 def get_missing_args(user_args):
@@ -254,10 +255,18 @@ def validate_arg(arg_name, user_input, user_args):
         if not user_input:
             return False, [], f"At least one protected attribute expected"
         else:
+            k=''
             for prot in user_input.split(" "):
                 if prot.lower() not in available_columns:
-                    return False, None, f"Invalid protected. Available list of attributes in the data: {available_target_name}."
+                    chosen_dataset = user_args.get("dataset", "").lower()
+                    if chosen_dataset not in ['adult', 'bank']:
+                        return False, None, f"Invalid protected. Available list of attributes in the data: {available_columns}."
+                    else:
+                        k+=' '+prot+','
                 
+            if k!='':
+                return True, user_input.split(), f"Invalid protected attribute(s) {k} will be replaced with default known protected."
+            
             return True, user_input.split(), ""
 
     elif arg_name == "nprotgs":
@@ -266,23 +275,25 @@ def validate_arg(arg_name, user_input, user_args):
         if len(splitted) != len(existing_prots):
             return False, None, f"Got {len(splitted)} non-protected vals for {len(existing_prots)} protected columns. Please match count."
         else:
-            for i in range(len(splitted)):
-                column=session["data"].data[existing_prots[i]]
-                if pd.api.types.is_numeric_dtype(column):
-                    parsed_value = parse_numeric_input(splitted[i])
-                    if isinstance(parsed_value, tuple): 
-                        if parsed_value[0] < column.min() or parsed_value[1] > column.max():
-                            return False, None,f"Numeric non-protected input is outside dataset range [{column.min()}, {column.max()}]."
-                    else:  # If it's a single numeric value
-                        if parsed_value < column.min() or parsed_value > column.max():
-                            return False, None,f"Numeric non-protected input is outside dataset range [{column.min()}, {column.max()}]."
-
-                else:
-                    unique_vals = column.unique()
-                    unique_vals=[v.lower() for v in unique_vals]
-                    if splitted[i].lower() not in unique_vals:
-                        #raise ValueError(f"{splitted[i]}We are here{unique_vals}")
-                        return False, None, f"Non-protected category must be in {unique_vals}"
+            chosen_dataset = user_args.get("dataset", "").lower()
+            if chosen_dataset not in ['adult', 'bank']:
+                for i in range(len(splitted)):
+                    column=session["data"].data[existing_prots[i]]
+                    if pd.api.types.is_numeric_dtype(column):
+                        parsed_value = parse_numeric_input(splitted[i])
+                        if isinstance(parsed_value, tuple): 
+                            if parsed_value[0] < column.min() or parsed_value[1] > column.max():
+                                return False, None,f"Numeric non-protected input is outside dataset range [{column.min()}, {column.max()}]."
+                        else:  # If it's a single numeric value
+                            if parsed_value < column.min() or parsed_value > column.max():
+                                return False, None,f"Numeric non-protected input is outside dataset range [{column.min()}, {column.max()}]."
+    
+                    else:
+                        unique_vals = column.unique()
+                        unique_vals=[v.lower() for v in unique_vals]
+                        if splitted[i].lower() not in unique_vals:
+                            #raise ValueError(f"{splitted[i]}We are here{unique_vals}")
+                            return False, None, f"Non-protected category must be in {unique_vals}"
             return True, user_input.split(), ""
 
     elif arg_name == "deploy":

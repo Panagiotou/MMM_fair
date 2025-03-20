@@ -114,13 +114,9 @@ def plot2d(x, y, z=None, axis_names=['X', 'Y', 'Z'], title="2D Scatter Plot",
 def plot3d(x=[1, 2, 3, 4, 5], y=[2, 3, 1, 4, 5], z=[3, 1, 2, 5, 4], theta=[1,2,3,4,5], 
            criteria='all', axis_names=['X','Y','Z'], title="3D Scatter Plot of Pareto front.", 
            desc=(
-               "🔹 This plot visualizes our data in 3D.<br>"
-               "🔹 Each point's position is determined by X, Y, Z coordinates.<br>"
-               "🔹 Marker color is blue by default, but could represent categories.<br>"
-               "🔹 Hover over points to see info about the associated **theta** (ensemble pointer).<br>"
-               "🔹 Theta can be used as preferences to update the model:<br>"
-               "➡ <b>Example: model.update_theta(theta=my_preferred_theta)</b>"
-               "<br> _________________________________________________________ <br>"
+               "🔍Hover over points to see info about associated Theta.<br>"
+               "⚖️ Points show different loss trade-offs<br>"
+               "🧩 Theta can be used to update the model<br>"
            ),
            html=False):
     """
@@ -175,7 +171,7 @@ def plot3d(x=[1, 2, 3, 4, 5], y=[2, 3, 1, 4, 5], z=[3, 1, 2, 5, 4], theta=[1,2,3
     fig.update_layout(
         title=dict(
             text=f"{criteria}-objectives<br>{wrapped_title}",
-            font=dict(size=18),
+            font=dict(size=12),
         ),
         scene=dict(
             xaxis_title=f'X: {axis_names[0]}',
@@ -185,12 +181,12 @@ def plot3d(x=[1, 2, 3, 4, 5], y=[2, 3, 1, 4, 5], z=[3, 1, 2, 5, 4], theta=[1,2,3
         annotations=[
             go.layout.Annotation(
                 showarrow=False,
-                #text=desc,
+                text=desc,
                 x=1.02,  # text to the right outside the plot
                 y=1.02,
                 xref="paper",
                 yref="paper",
-                font=dict(size=14, color="black"),
+                font=dict(size=10, color="black"),
                 bgcolor="rgba(255, 255, 255, 0.85)",  
                 bordercolor="black",
                 borderwidth=2,

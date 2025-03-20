@@ -39,6 +39,17 @@ Requires Python 3.11+.
 Dependencies: numpy, scikit-learn, tqdm, pymoo, pandas, ucimlrepo, skl2onnx, etc.
 
 ---
+## Usage
+The mmm-fair package provides two different usage possibilities. One is a chat based on a web-based UI (specially tailored new user, with even non-technical abckground), and the other is command line based (for ML scientist, engineers, etc.)
+
+### Usage Overview (mmm-chat)
+Right now its still terminal dependent (soon will release a destop app). So after installing one needs to bash
+
+    mmm-fair-chat
+and then in any browser copy paste:
+
+    http://127.0.0.1:5000
+Then start chating with the interactive web app to get your MMM-Fair AI model.
 
 ## Usage Overview (AdaBoost-Style)
 

@@ -32,12 +32,13 @@
         <!-- Main Content: Chat + Visualization -->
         <div class="content">
             <!-- Chat Box (With Scrolling) -->
-            <div id="chat-container" style="overflow-y: auto; max-height: 800px;">
+            <div id="chat-container" style="overflow-y: auto; max-height: 900px;">
                 <div id="chat-box"></div>
 
                 <div class="chat-input-container">
                     <input type="text" id="chat-input" placeholder="Type your message..." autofocus>
-                    <button id="send-btn">Send</button>
+                    
+                    <button id="send-btn">&nbsp; Send &nbsp;</button>
                 </div>
 
                 <div class="reset-container">
@@ -46,11 +47,11 @@
             </div>
 
             <!-- Visualization Box (With Scrolling) -->
-            <div id="visualization-container" style="overflow-y: auto; max-height: 800px;">
+            <div id="visualization-container" style="overflow-y: auto; max-height: 900px;">
                 <h2>Pareto Front Visualization</h2>
 
-                <div id="plot3d-box" style="width: 100%; min-height: 300px; border: 1px solid #ccc; overflow-y: auto;"></div>
-                <div id="plot2d-box" style="width: 100%; min-height: 300px; border: 1px solid #ccc; overflow-y: auto;"></div>
+                <div id="plot3d-box" style="width: 98%; min-height: 300px; border: 1px solid #ccc; overflow-y: auto;"></div>
+                <div id="plot2d-box" style="width: 98%; min-height: 300px; border: 1px solid #ccc; overflow-y: auto;"></div>
 
                 <!-- Theta Selection -->
                 <div id="theta-selection">

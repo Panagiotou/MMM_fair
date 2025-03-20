@@ -5,7 +5,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: flex-start; /* Aligns content at the top */
-    height: 100vh;
+    height: 120vh;
     overflow-y: auto; /* Enables scrolling */
     margin: 0;
 }
@@ -70,13 +70,13 @@ body {
     justify-content: space-between;
     gap: 2px;
     overflow-y: auto; /* Enables scrolling inside content */
-    max-height: 80vh; /* Prevents layout shift */
+    max-height: 100vh; /* Prevents layout shift */
 }
 
 /* Chat Box */
 #chat-container {
     width: 40%;
-    height: 500px;
+    height: 722px;
     overflow-y: auto; /* Enables scrolling inside chat */
     background: #f9f9f9;
     border-radius: 10px;
@@ -88,8 +88,37 @@ body {
 #chat-box {
     text-align: left;
     padding: 10px;
-    max-height: 400px;
+    max-height: 600px;
     overflow-y: auto; /* Enables scrolling inside chat messages */
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* Adds space between messages */
+}
+
+/* User Messages - Align Right */
+.message.user {
+    background-color: #4facfe;
+    color: white;
+    text-align: right;
+    align-self: flex-end; /* Pushes messages to the right */
+    padding: 10px;
+    border-radius: 12px;
+    max-width: 80%;
+    word-wrap: break-word;
+    border-top-right-radius: 2px;  /* Rounded on all but top-right */
+}
+
+/* Bot Messages - Align Left */
+.message.bot {
+    background-color: #e0e0e0;
+    color: black;
+    text-align: left;
+    align-self: flex-start; /* Pushes messages to the left */
+    padding: 10px;
+    border-radius: 12px;
+    max-width: 80%;
+    word-wrap: break-word;
+    border-top-left-radius: 2px; /* Rounded on all but top-left */
 }
 
 /* Input & Buttons */
@@ -102,6 +131,7 @@ body {
     padding: 10px;
     border: 2px solid #4facfe;
     border-radius: 5px;
+    max-width: 80%;
 }
 #send-btn {
     background-color: #4facfe;
@@ -110,6 +140,7 @@ body {
     padding: 10px;
     cursor: pointer;
     border-radius: 5px;
+    text-align: center;
 }
 #send-btn:hover {
     background-color: #00c6ff;
@@ -153,7 +184,7 @@ body {
     margin-bottom: 10px;
     box-shadow: inset 0px 0px 5px rgba(0, 0, 0, 0.1);
     overflow-y: auto;
-    max-height: 400px;
+    max-height: 500px;
 }
 
 /* Theta Selection */

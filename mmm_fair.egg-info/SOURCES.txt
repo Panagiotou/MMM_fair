@@ -21,5 +21,12 @@ mmm_fair.egg-info/.ipynb_checkpoints/dependency_links-checkpoint.txt
 mmm_fair.egg-info/.ipynb_checkpoints/requires-checkpoint.txt
 mmm_fair/mchat/__init__.py
 mmm_fair/mchat/mmm_app.py
+mmm_fair/mchat/static/all_.html
+mmm_fair/mchat/static/chat.css
+mmm_fair/mchat/static/chat.js
+mmm_fair/mchat/static/fair_.html
+mmm_fair/mchat/static/mmm-fair.png
+mmm_fair/mchat/static/temp.html
+mmm_fair/mchat/templates/index.html
 tests/test_data_process.py
 tests/test_mmm_fair.py
