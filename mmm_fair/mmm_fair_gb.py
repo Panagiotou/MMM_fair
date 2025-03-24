@@ -76,7 +76,7 @@ class MultiFairBinomialLoss(HalfBinomialLoss):
         Weight of the fairness penalty relative to logistic loss.
     beta : float, default=10.0
         Smoothmax parameter. Larger means closer to actual max but less smooth.
-    fairness_type : str in {"DP","EP","EO"}, default="DP"
+    fairness_type : str in {"DP","EP","EO","TPR","FPR"}, default="DP"
         Which measure to compute for each attribute.
         For multiple attributes, we do the same measure but you can adapt.
     sample_weight : array-like, optional
