@@ -76,7 +76,7 @@ class MultiFairBinomialLoss(HalfBinomialLoss):
         Weight of the fairness penalty relative to logistic loss.
     beta : float, default=10.0
         Smoothmax parameter. Larger means closer to actual max but less smooth.
-    fairness_type : str in {"DP","EP","EO"}, default="DP"
+    fairness_type : str in {"DP","EP","EO","TPR","FPR"}, default="DP"
         Which measure to compute for each attribute.
         For multiple attributes, we do the same measure but you can adapt.
     sample_weight : array-like, optional
@@ -109,7 +109,7 @@ class MultiFairBinomialLoss(HalfBinomialLoss):
     def _compute_single_fairness(self, y_true, p, s):
         """
         Compute a single-attribute fairness measure:
-        DP, EP, or EO (toy version with squared difference).
+        DP, EP, EO, TPR, FPR (toy version with squared difference).
         
         s is shape (n_samples,), 0=protected,1=non-protected
         p is predicted prob of pos class, shape (n_samples,).
@@ -142,7 +142,7 @@ class MultiFairBinomialLoss(HalfBinomialLoss):
                 grad[i] = chain * logistic_chain_rule(p[i])
             return penalty, grad
 
-        elif self.fairness_type.lower() == "ep":
+        elif self.fairness_type.lower() == "ep" or self.fairness_type.lower() == "tpr":
             # difference in TPR => subset y=1
             idx_pos = (y_true == 1)
             idx0p = idx0 & idx_pos
@@ -162,6 +162,29 @@ class MultiFairBinomialLoss(HalfBinomialLoss):
                         chain = factor*(1./n1p)
                     else:
                         chain = factor*(-1./n0p)
+                    grad[i] = chain * logistic_chain_rule(p[i])
+            return penalty, grad
+
+        elif self.fairness_type.lower() == "fpr":
+            # difference in FPR => subset y=0
+            idx_neg = (y_true == 0)
+            idx0n = idx0 & idx_neg
+            idx1n = idx1 & idx_neg
+            n0n = max(1, idx0n.sum())
+            n1n = max(1, idx1n.sum())
+            mean0n = (1.-p[idx0n]).mean() if np.any(idx0n) else 0.
+            mean1n = (1.-p[idx1n]).mean() if np.any(idx1n) else 0.
+            diff = mean1n - mean0n
+            penalty = diff*diff
+
+            grad = np.zeros_like(p)
+            factor = 2.*diff
+            for i in range(len(p)):
+                if idx_neg[i]:
+                    if s[i] == 1:
+                        chain = factor*(1./n1n)*(-1.)
+                    else:
+                        chain = factor*(-1./n0n)*(-1.)
                     grad[i] = chain * logistic_chain_rule(p[i])
             return penalty, grad
 
@@ -366,7 +389,7 @@ class MMM_Fair_GradientBoostedClassifier(HistGradientBoostingClassifier):
                             saValue=self.saValue,
                             alpha_fair=alpha,
                             beta=10.0,
-                            fairness_type=constraint,  # or "EP","EO"
+                            fairness_type=constraint,  # or "EP","EO", "TPR", "FPR"
                         ),
                 early_stopping=early_stopping,
                 validation_fraction=validation_fraction,
@@ -945,6 +968,8 @@ class MMM_Fair_GradientBoostedClassifier(HistGradientBoostingClassifier):
                     report_dict=report.show(env=fb.export.ToDict)
                     dp=report_dict['depends'][6]['depends'][1]['value']['value']
                     ep=report_dict['depends'][6]['depends'][2]['value']['value']
+                    tpr = report_dict['depends'][6]['depends'][2]['value']['value']
+                    fpr = report_dict['depends'][6]['depends'][3]['value']['value']
                     eo=max(report_dict['depends'][6]['depends'][2]['value']['value'],
                                       report_dict['depends'][6]['depends'][3]['value']['value'])
                     if self.constraint.lower()=='dp':
@@ -953,15 +978,19 @@ class MMM_Fair_GradientBoostedClassifier(HistGradientBoostingClassifier):
                         o3.append(ep)
                     elif self.constraint.lower()=='eo':
                         o3.append(eo)
+                    elif self.constraint.lower()=='tpr':
+                        o3.append(tpr)
+                    elif self.constraint.lower()=='fpr':
+                        o3.append(fpr)
                     else:
                         o3.append(0.99)
                 self.ob.append([o1, o2, max(o3)])
                 self.feat_obs.append(o3) 
-                self.fairobs.append([dp,ep,eo])
+                self.fairobs.append([dp,ep,eo,tpr,fpr])
                 
                 
         self.ob = np.array(self.ob)
-        self.feat_obs= np.array(self.feat_obs)
+        self.feat_obs = np.array(self.feat_obs)
         self.fairobs = np.array(self.fairobs)
         del self._in_fit  # hard delete so we're sure it can't be used anymore
         return self

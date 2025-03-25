@@ -224,8 +224,8 @@ def validate_arg(arg_name, user_input, user_args):
 
     elif arg_name == "constraint":
         c = user_input.upper()
-        if c not in ["DP", "EP", "EO"]:
-            return False, None, "Constraint must be DP, EP, or EO."
+        if c not in ["DP", "EP", "EO", "TPR", "FPR"]:
+            return False, None, "Constraint must be DP, EP, EO, TPR, or FPR."
         return True, c, ""
 
     elif arg_name == "dataset":

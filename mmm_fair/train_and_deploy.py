@@ -19,7 +19,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 from sklearn.tree import ExtraTreeClassifier
 from sklearn.model_selection import train_test_split
-from mmm_fair.viz_trade_offs import plot3d
+from .viz_trade_offs import plot3d
+# from mmm_fair.viz_trade_offs import plot3d
 
 default_data_setting = {
     'bank': {'prots': ['marital', 'age'], 'nprotgs': ['married', '30_60']},
@@ -432,7 +433,7 @@ def report_card(args, mmm_classifier, SI, sensitives, xtest, ytest, card=True, h
                             sensitives=sensitives,
                             mmm_classifier=mmm_classifier,
                             saIndex_test=SI,
-                            y_pred=ypreds,
+                            y_pred=ypred,
                             y_test=ytest,
                             html=html
                         )
@@ -530,7 +531,7 @@ def main():
     )
 
     parser.add_argument("--constraint", type=str, default="EO",
-                        help="Fairness constraint: DP, EO, or EP.")
+                        help="Fairness constraint: DP, EO, EP, TPR, or FPR.")
     
     parser.add_argument("--deploy", type=str, default=None,
                         help="Deployment format: 'onnx' or 'pickle'.")

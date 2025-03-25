@@ -17,7 +17,7 @@ def get_hparams(
     """
     Returns a dict of parameters to instantiate the desired classifier.
     :param classifier: "MMM_Fair" or "MMM_Fair_GBT"
-    :param constraint: "DP", "EP", or "EO" 
+    :param constraint: "DP", "EP", "EO", "TPR", or "FPR" 
     :param alpha: fairness weight
     :param max_iter: number of boosting iterations
     :param saIndex: sensitive array
@@ -61,7 +61,14 @@ def get_hparams(
                     "n_estimators": 1000,
                 })
                 pareto_bool = False
-            elif cstr == "EP":
+            elif cstr == "EP" or cstr == "TPR":
+                mmm_params.update({
+                    "random_state": 0,
+                    "n_estimators": 300,
+                    "gamma": 0.25
+                })
+                pareto_bool = False
+            elif cstr == "FPR":
                 mmm_params.update({
                     "random_state": 0,
                     "n_estimators": 300,
@@ -88,7 +95,14 @@ def get_hparams(
                     "gamma": 0.5
                 })
                 pareto_bool = False
-            elif cstr == "EP":
+            elif cstr == "EP" or cstr == "TPR":
+                mmm_params.update({
+                    "random_state": 0,
+                    "n_estimators": 300,
+                    "gamma": 0.25
+                })
+                pareto_bool = True
+            elif cstr == "FPR":
                 mmm_params.update({
                     "random_state": 0,
                     "n_estimators": 300,
