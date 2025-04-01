@@ -1,4 +1,5 @@
-![MMM-Fair Logo](https://raw.githubusercontent.com/arjunroyihrpa/MMM_fair/main/images/mmm-fair.png)
+[![MMM-Fair Logo](https://raw.githubusercontent.com/arjunroyihrpa/MMM_fair/main/images/mmm-fair.png)](https://github.com/arjunroyihrpa/MMM_fair)
+
 ### MMM-Fair is a multi-objective, fairness-aware boosting classifier originally inspired by the paper: "Multi-fairness Under Class-Imbalance"
 https://link.springer.com/chapter/10.1007/978-3-031-18840-4_21
 
@@ -228,24 +229,26 @@ For the bias exploration using [MAMMOth](https://mammoth-ai.eu) pipeline it is r
 
 “[Multi-Fairness Under Class-Imbalance](https://link.springer.com/chapter/10.1007/978-3-031-18840-4_21),”  Roy, Arjun, Vasileios Iosifidis, and Eirini Ntoutsi. International Conference on Discovery Science. Cham: Springer Nature Switzerland, 2022.
 
-### Maintainer: Arjun Roy (arjunroyihrpa@gmail.com)
+#### Maintainer: Arjun Roy (arjunroyihrpa@gmail.com)
 
-### Contributors: Swati Swati (swati17293@gmail.com)
+#### Contributors: Swati Swati (swati17293@gmail.com)
 
 ### 🏛️ Funding
 
-MMM-Fair is an ongoing, research-driven project. Its development has been made possible through support from several public funding initiatives.
+MMM-Fair is a research-driven project supported by several public funding initiatives. We gratefully acknowledge the generous support of:
 
-We gratefully acknowledge the generous support of:
+<p align="center">
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<img src="https://bias-project.org/wp-content/themes/wp-bootstrap-starter/images/Bias_Logo.svg" alt="bias-logo" width="120" />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="https://mammoth-ai.eu/wp-content/uploads/2022/09/mammoth.svg" alt="mammoth-logo" width="150" style="margin: 0 20px"/>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <img src="https://stelar-project.eu/wp-content/uploads/2022/08/cropped-stelar-sq.png" alt="stelar-logo" width="100" />
+</p>
 
-- [**Volkswagen Foundation – Project BIAS**](https://bias-project.org)  
-  <img src="https://bias-project.org/wp-content/themes/wp-bootstrap-starter/images/Bias_Logo.svg" alt="bias-logo" width="120"/>
+<p align="center">
+  <a href="https://bias-project.org"><strong>Volkswagen Foundation – BIAS</strong></a> &nbsp;&nbsp;&nbsp;
+  <a href="https://mammoth-ai.eu"><strong>EU Horizon – MAMMOth</strong></a> &nbsp;&nbsp;&nbsp;
+  <a href="https://stelar-project.eu"><strong>EU Horizon – STELAR</strong></a>
+</p>
 
-- [**EU Horizon Project – MAMMOth**](https://mammoth-ai.eu)  
-  <img src="https://mammoth-ai.eu/wp-content/uploads/2022/09/mammoth.svg" alt="mammoth-logo" width="150"/>
-
-- [**EU Horizon Project – STELAR**](https://stelar-project.eu)  
-  <img src="https://stelar-project.eu/wp-content/uploads/2022/08/cropped-stelar-sq.png" alt="stelar-logo" width="120"/>
 
 ### License & Contributing
 
