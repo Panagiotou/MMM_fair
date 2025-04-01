@@ -1,4 +1,5 @@
 import os
+import time
 from flask import Flask, render_template, request, session, jsonify
 from flask_session import Session
 import argparse
@@ -20,7 +21,7 @@ from mmm_fair.viz_trade_offs import plot2d, plot3d
 from mmm_fair.mmm_fair import MMM_Fair
 from mmm_fair.mmm_fair_gb import MMM_Fair_GradientBoostedClassifier
 from mmm_fair.data_process import data_uci  # Importing data processing module
-import os
+
 import uuid
 import plotly.io as pio
 
@@ -224,8 +225,8 @@ def validate_arg(arg_name, user_input, user_args):
 
     elif arg_name == "constraint":
         c = user_input.upper()
-        if c not in ["DP", "EP", "EO"]:
-            return False, None, "Constraint must be DP, EP, or EO."
+        if c not in ["DP", "EP", "EO", "TPR", "FPR"]:
+            return False, None, "Constraint must be DP, EP, EO, TPR, or FPR."
         return True, c, ""
 
     elif arg_name == "dataset":
@@ -340,6 +341,12 @@ def reset_chat():
     session.pop("chat_history", None)
     session.pop("user_args", None)
     session.pop("data", None)
+    for fname in os.listdir(PLOT_DIR):
+        if fname.startswith("table_") or fname.startswith("fair_") or fname.startswith("all_"):
+            try:
+                os.remove(os.path.join(PLOT_DIR, fname))
+            except Exception:
+                pass
     return "Chat reset done."
 
 def run_mmm_fair_app(user_args):
@@ -348,6 +355,8 @@ def run_mmm_fair_app(user_args):
     session["mmm_classifier"] = mmm_classifier
     session["xtest"]=X_test
     session["ytest"]=y_test
+    session["saIndex_test"]=saIndex_test
+    session["sensitives"]=sensitives
     PF=np.array([mmm_classifier.ob[i] for i in range(len(mmm_classifier.ob))])
     thetas=np.arange(len(mmm_classifier.ob))
     title=f"3D Scatter Plot. Showing various trade-off points between Accuracy, Balanced Accuracy, and Maximum violation of {mmm_classifier.constraint} fairness among protected attributes."
@@ -358,20 +367,35 @@ def run_mmm_fair_app(user_args):
     vis_fair=plot3d(x=PF[:,0],y=PF[:,1],z=PF[:,2], theta=thetas, criteria= "Multi-definitions",
            axis_names=['DP','EqOpp', 'EqOdd'],title=title,html=True)
 
+    y_pred= mmm_classifier.predict(X_test)
+    report_table= generate_reports(
+                                    'html', 
+                                    sensitives, 
+                                    mmm_classifier, 
+                                    saIndex_test, 
+                                    y_pred, 
+                                    y_test,
+                                    html=True
+                                )
     plot_all = f"all_.html"
     plot_fair = f"fair_.html"
+    plot_table = f"table_.html"
 
     plot_all_path = os.path.join(PLOT_DIR, plot_all)
     plot_fair_path = os.path.join(PLOT_DIR, plot_fair)
+    plot_table_path = os.path.join(PLOT_DIR, plot_table)
 
     # Save the Plotly-generated HTML directly to files
     with open(plot_all_path, "w") as f:
         f.write(vis_all)
     with open(plot_fair_path, "w") as f:
         f.write(vis_fair)
+    with open(plot_table_path, "w") as f:
+        f.write(report_table)
 
-    # Return URLs to the generated HTML plots
-    return f"/static/{plot_all}", f"/static/{plot_fair}"
+    session["plot_all_url"]=f"/static/{plot_all}"
+    session["plot_fair_url"]=f"/static/{plot_table}"
+    return f"/static/{plot_all}", f"/static/{plot_table}"
 
 @app.route('/static/<path:filename>')
 def serve_static_files(filename):
@@ -402,7 +426,42 @@ def update_model():
     mmm_classifier.update_theta(theta=theta_index)
     session["mmm_classifier"] = mmm_classifier  # Store updated model
 
-    return jsonify({"success": True, "message": f"Model updated with Theta index {theta_index}."})
+    X_test = session.get("xtest")
+    y_test = session.get("ytest")
+    user_args = session.get("user_args", {})
+    sensitives = session.get("sensitives")
+    saIndex_test = session.get("saIndex_test")
+
+
+    y_pred = mmm_classifier.predict(X_test)
+
+    report_table = generate_reports(
+        'html',
+        sensitives,
+        mmm_classifier,
+        saIndex_test,
+        y_pred,
+        y_test,
+        html=True
+    )
+
+    unique_id = str(uuid.uuid4())[:4]
+    plot_table = f"table_.html"
+    p2=f"table_{unique_id}.html"
+    plot_table_path = os.path.join(PLOT_DIR, p2)#plot_table)
+
+    with open(plot_table_path, "w") as f:
+        f.write(report_table)
+        f.flush()
+        os.fsync(f.fileno())
+
+
+    session["plot_fair_url"]=f"/static/{p2}"
+    return jsonify({
+        "success": True,
+        "message": f"Model updated with Theta index {theta_index}.",
+        "plot_fair_url": f"/static/{plot_table}"
+    })
 
 @app.route("/save_model", methods=["POST"])
 def save_model():

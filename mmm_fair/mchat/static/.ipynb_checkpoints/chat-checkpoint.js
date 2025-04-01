@@ -46,6 +46,37 @@ document.addEventListener("DOMContentLoaded", function(){
         renderMessage("bot", "👋 Hello! Welcome to MMM-Fair Chat. \n At the moment, I can help you train either\n - 'MMM_Fair' (the AdaBoost style), or\n - 'MMM_Fair_GBT' (the Gradient Boosting style).\n\n Please type 'MMM_Fair' or 'MMM_Fair_GBT' to begin. \n Or type 'default' to run the GBT version on Adult data with default parameters.🙂 ", true);
     }
 
+    function loadSessionOnLoad() {
+        fetch("/get_session_state")
+        .then(response => response.json())
+        .then(data => {
+            chatBox.innerHTML = "";
+            plot3dBox.innerHTML = "";
+            plot2dBox.innerHTML = "";
+
+            if (data.chat_history && data.chat_history.length > 0) {
+                data.chat_history.forEach(msg => {
+                    renderMessage(msg.sender, msg.text, false);
+                });
+            } else {
+                showWelcomeMessage();
+            }
+
+            if (data.plot_all_url) {
+                plot3dBox.innerHTML = `<iframe src="${data.plot_all_url}" width="100%" height="400px" frameborder="0"></iframe>`;
+            }
+
+            if (data.plot_fair_url) {
+                lastPlotFairURL = data.plot_fair_url;
+                plot2dBox.innerHTML = `<iframe src="${lastPlotFairURL}" width="100%" height="400px" frameborder="0"></iframe>`;
+            }
+        })
+        .catch(error => {
+            console.error("Error loading session state:", error);
+            showWelcomeMessage();
+        });
+    }
+
     // Reset chat history on page load
     function resetChatOnLoad() {
         fetch("/reset_chat")
@@ -128,12 +159,18 @@ document.addEventListener("DOMContentLoaded", function(){
         })
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                alert(`Model updated successfully with Theta ${thetaValue}`);
-            } else {
-                alert(`Error updating model: ${data.error}`);
-            }
-        })
+        if (data.success) {
+            alert(`Model updated successfully with Theta ${thetaValue}`);
+
+        // ✅ Dynamically update the fairness report (plot2d)
+        if (data.plot_fair_url) {
+            console.log("DEBUG: Updating plot2dBox with new report");
+            plot2dBox.innerHTML = `<iframe src="${data.plot_fair_url}?t=${Date.now()}" width="100%" height="400px" frameborder="0"></iframe>`;
+        }
+    } else {
+        alert(`Error updating model: ${data.error}`);
+    }
+    })
         .catch(error => console.error("Error updating model:", error));
     });
 
@@ -163,5 +200,6 @@ document.addEventListener("DOMContentLoaded", function(){
     });
 
     // Reset chat every time the page loads
-    resetChatOnLoad();
+    //resetChatOnLoad();
+    loadSessionOnLoad();
 });

@@ -232,6 +232,21 @@ For the bias exploration using [MAMMOth](https://mammoth-ai.eu) pipeline it is r
 
 ### Contributors: Swati Swati (swati17293@gmail.com)
 
+### 🏛️ Funding
+
+MMM-Fair is an ongoing, research-driven project. Its development has been made possible through support from several public funding initiatives.
+
+We gratefully acknowledge the generous support of:
+
+- [**Volkswagen Foundation – Project BIAS**](https://bias-project.org)  
+  <img src="https://bias-project.org/wp-content/themes/wp-bootstrap-starter/images/Bias_Logo.svg" alt="bias-logo" width="120"/>
+
+- [**EU Horizon Project – MAMMOth**](https://mammoth-ai.eu)  
+  <img src="https://mammoth-ai.eu/wp-content/uploads/2022/09/mammoth.svg" alt="mammoth-logo" width="150"/>
+
+- [**EU Horizon Project – STELAR**](https://stelar-project.eu)  
+  <img src="https://stelar-project.eu/wp-content/uploads/2022/08/cropped-stelar-sq.png" alt="stelar-logo" width="120"/>
+
 ### License & Contributing
 
 This project is released under [Apache License Version 2.0].

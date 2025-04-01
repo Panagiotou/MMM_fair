@@ -2,6 +2,9 @@
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+include-package-data = true 
+
 [tool.setuptools.packages.find]
 include = ["mmm_fair*"]
 exclude = ["images", "images.*", "tests", "tests.*"]
@@ -15,7 +18,7 @@ mmm-fair-chat = "mmm_fair.mchat.mmm_app:main"
 
 [project]
 name = "mmm-fair"
-version = "1.0.1"
+version = "1.0.2"
 description = "A multi-objective multi-fairness boosting classifier"
 readme = "README.md"
 authors = [

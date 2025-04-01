@@ -1052,6 +1052,7 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         #print(sum(y_predict))
         proba = estimator.predict_proba(X)
         del X_p,y_p,sample_weight_p
+        self.all_estimators.append(estimator)
 
         if iboost == 0:
             self.classes_ = getattr(estimator, "classes_", None)

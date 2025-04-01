@@ -95,6 +95,7 @@ class BaseWeightBoosting(six.with_metaclass(ABCMeta, BaseEnsemble)):
             Returns self.
         """
         # Check parameters
+        self.estimators_ = []
         self.weight_list = []
         self.costs_list = []
         if self.learning_rate <= 0:
@@ -219,7 +220,7 @@ class BaseWeightBoosting(six.with_metaclass(ABCMeta, BaseEnsemble)):
 
         if self.debug:
             print("best partial ensemble at round: " + str(self.theta))
-        # self.estimators_ = self.estimators_[:self.theta  ]
+        # self.estimator_ = self.estimator_[:self.theta  ]
         # self.estimator_alphas_ = self.estimator_alphas_[:self.theta  ]
 
         if self.debug:
@@ -494,7 +495,7 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         self.costs = []
         self.PF = {}
         self.sensitives = list(self.saValue.keys())
-        valid_constraints = {"DP", "EP", "EO"}  # Using a set for quick membership testing
+        valid_constraints = {"DP", "EP", "EO", "TPR", "FPR"}  # Using a set for quick membership testing
         self.gamma=gamma
         self.tracking=tracking
         if constraints not in valid_constraints:
@@ -701,15 +702,17 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
             # 5) Add fairness cost(s)
             if self.constraints == "DP":
                 fair_cost.append(abs(diff_ppr))
-            elif self.constraints == "EP":
+            elif self.constraints=="EP" or self.constraints=="TPR":
                 fair_cost.append(abs(diff_tpr))
+            elif self.constraints=="FPR":
+                fair_cost.append(abs(diff_tnr))
             else:  # "EO"
                 fair_cost.append(max(abs(diff_tpr), abs(diff_tnr)))
     
             eq_odds.append(abs(diff_tpr) + abs(diff_tnr))
     
             # 6) Update cost arrays for next iteration (used in _boost_discrete)
-            if self.constraints in ["EP", "EO"]:
+            if self.constraints in ["EP", "EO", "TPR", "FPR"]:
                 self.cost_protected_negative[i] = 1
                 self.cost_non_protected_negative[i] = 1
                 if diff_tpr >= 0:
@@ -1049,6 +1052,7 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         #print(sum(y_predict))
         proba = estimator.predict_proba(X)
         del X_p,y_p,sample_weight_p
+        self.all_estimators.append(estimator)
 
         if iboost == 0:
             self.classes_ = getattr(estimator, "classes_", None)
@@ -1095,8 +1099,8 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         '''
         if estimator_error >= 1.0 - (1.0 / n_classes):
             if n_classes>2: 
-                self.estimators_.pop(-1)
-                if len(self.estimators_) == 0:
+                self.estimator_.pop(-1)
+                if len(self.estimator_) == 0:
                     raise ValueError(
                         "BaseClassifier in AdaBoostClassifier "
                         "ensemble is worse than random, ensemble "
@@ -1155,7 +1159,7 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         if not iboost == self.n_estimators - 1:
             for idx, row in enumerate(sample_weight):
                 
-                if self.constraints in ["EO","EP"]:
+                if self.constraints in ["EO","EP", "TPR", "FPR"]:
                     # 1. FN: actual = positive, predicted = negative
                     if y[idx] == self.pos_class and y_predict[idx] != self.pos_class:
                         cost_vector = self._compute_cost_vector(

@@ -26,6 +26,10 @@ mmm_fair/mchat/static/chat.css
 mmm_fair/mchat/static/chat.js
 mmm_fair/mchat/static/fair_.html
 mmm_fair/mchat/static/mmm-fair.png
+mmm_fair/mchat/static/table_.html
+mmm_fair/mchat/static/table_5616.html
+mmm_fair/mchat/static/table_8c80.html
+mmm_fair/mchat/static/table_f3e1.html
 mmm_fair/mchat/static/temp.html
 mmm_fair/mchat/templates/index.html
 tests/test_data_process.py
