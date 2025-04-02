@@ -17,8 +17,6 @@ mmm_fair.egg-info/dependency_links.txt
 mmm_fair.egg-info/entry_points.txt
 mmm_fair.egg-info/requires.txt
 mmm_fair.egg-info/top_level.txt
-mmm_fair.egg-info/.ipynb_checkpoints/dependency_links-checkpoint.txt
-mmm_fair.egg-info/.ipynb_checkpoints/requires-checkpoint.txt
 mmm_fair/mchat/__init__.py
 mmm_fair/mchat/mmm_app.py
 mmm_fair/mchat/static/all_.html

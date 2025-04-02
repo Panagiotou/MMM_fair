@@ -32,9 +32,9 @@ Both handle multi-objective, multi-attribute, and multi-type fairness constraint
 ---
 
 ## Installation
-
-	pip install mmm-fair
-
+```bash
+pip install mmm-fair
+```
 Requires Python 3.11+.
 
 Dependencies: numpy, scikit-learn, tqdm, pymoo, pandas, ucimlrepo, skl2onnx, etc.
@@ -45,35 +45,39 @@ The mmm-fair package provides two different usage possibilities. One is a chat b
 
 ### Usage Overview (mmm-chat)
 Right now its still terminal dependent (soon will release a destop app). So after installing one needs to bash
-
-    mmm-fair-chat
+```bash
+mmm-fair-chat
+```
 and then in any browser copy paste:
-
-    http://127.0.0.1:5000
+```bash
+http://127.0.0.1:5000
+```
 Then start chating with the interactive web app to get your MMM-Fair AI model.
 
 ## Usage Overview (AdaBoost-Style)
 
 You can import and use MMM-Fair (original version):
-
-	from mmm_fair import MMM_Fair 
-	from sklearn.tree import DecisionTreeClassifier
+```python
+from mmm_fair import MMM_Fair 
+from sklearn.tree import DecisionTreeClassifier
+```
 
 ### Suppose you have X (features), y (labels)
 ### 
-    mmm = MMM_Fair(
-    estimator=DecisionTreeClassifier(max_depth=5),
-    constraints="EO",        # or "DP", "EP"
-    n_estimators=1000,
-    saIndex=...,            # shape (n_samples, n_protected)
-    saValue=...,            # dictionary {'prot_att_column_name': prot value}
-    random_state=42,
-    # other parameters, e.g. gamma, saIndex, saValue...
-    )
-    
-    mmm.fit(X, y)
-    preds = mmm.predict(X_test)
+```python
+mmm = MMM_Fair(
+estimator=DecisionTreeClassifier(max_depth=5),
+constraints="EO",        # or "DP", "EP"
+n_estimators=1000,
+saIndex=...,            # shape (n_samples, n_protected)
+saValue=...,            # dictionary {'prot_att_column_name': prot value}
+random_state=42,
+# other parameters, e.g. gamma, saIndex, saValue...
+)
 
+mmm.fit(X, y)
+preds = mmm.predict(X_test)
+```
 ### Fairness Constraints
 
 •	constraints="DP" → Demographic Parity
@@ -92,21 +96,67 @@ In all cases, pass the relevant saIndex (sensitive attribute array) and saValue 
 
 We also provide MMM_Fair_GradientBoostedClassifier. This uses a histogram-based gradient boosting approach (similar to HistGradientBoostingClassifier) but includes a custom fairness loss to train and then multi-objective post-processing step to select the best pareto-optimal ensemble round. Example:
 
-    from mmm_fair import MMM_Fair_GradientBoostedClassifier
-    
-    clf = MMM_Fair_GradientBoostedClassifier(
-        constraint="EO",        # or "DP", "EP"
-        alpha=0.1,              # fairness weight
-        saIndex=...,            # shape (n_samples, n_protected)
-        saValue=...,            # dictionary or None
-        max_iter=100,
-        random_state=42,
-        ## any other arguments that the HistGradientBoostingClassifier from sklearn can handle
-    )
-    clf.fit(X, y)
-    preds = clf.predict(X_test)
+```python
+from mmm_fair import MMM_Fair_GradientBoostedClassifier
 
+clf = MMM_Fair_GradientBoostedClassifier(
+    constraint="EO",        # or "DP", "EP"
+    alpha=0.1,              # fairness weight
+    saIndex=...,            # shape (n_samples, n_protected)
+    saValue=...,            # dictionary or None
+    max_iter=100,
+    random_state=42,
+    ## any other arguments that the HistGradientBoostingClassifier from sklearn can handle
+)
+clf.fit(X, y)
+preds = clf.predict(X_test)
+```
 
+## 📥 In-built Data Loader for UCI Datasets
+
+MMM-Fair includes utility functions to seamlessly work with datasets from the [UCI Machine Learning Repository](https://archive.ics.uci.edu/datasets).
+
+### 🔧 Load a UCI dataset (e.g. Adult dataset)
+```python
+from mmm_fair import data_uci
+from mmm_fair import build_sensitives
+
+# Load dataset with target column
+data = data_uci(dataset_name="Adult", target="income")
+```
+### 🛡️ Define Sensitive Attributes
+```python
+saIndex, saValue = build_sensitives(
+    data.data,
+    protected_cols=["race", "sex"],
+    non_protected_vals=["White", "Male"]
+)
+```
+
+### 🔀 Optional: Use with Train/Test Split
+```python
+from sklearn.model_selection import train_test_split
+import numpy as np
+
+X = data.to_pred(sensitive=["race", "sex"])
+y = data.labels["label"].to_numpy()
+indices = np.arange(len(X))
+
+X_train, X_test, y_train, y_test, id_train, id_test = train_test_split(
+    X, y, indices, test_size=0.3, random_state=42, stratify=y
+)
+
+# Rebuild fairness attributes for the split sets
+saIndex_train, saValue_train = build_sensitives(
+    data.data.iloc[id_train], ["race", "sex"], ["White", "Male"]
+)
+saIndex_test, _ = build_sensitives(
+    data.data.iloc[id_test], ["race", "sex"], ["White", "Male"]
+)
+```
+
+#### ✅ saIndex is a binary matrix (0 = protected, 1 = non-protected)
+#### ✅ saValue is a dictionary indicating protected status, e.g., {"race": 0, "sex": 0}
 ---
 
 ## Train & Deploy Script
@@ -132,42 +182,42 @@ This package provides a train_and_deploy.py script. It:
 ### Example command:
 #### 1. Original AdaBoost MMM_Fair:
 [using UCI library](https://archive.ics.uci.edu)
-
-    python -m mmm_fair.train_and_deploy \
-      --dataset Adult \
-      --prots race sex \
-      --nprotgs White Male \
-      --constraint EO \
-      --base_learner Logistic \
-      --deploy onnx \
-      --moo_vis True
-
+```bash
+python -m mmm_fair.train_and_deploy \
+  --dataset Adult \
+  --prots race sex \
+  --nprotgs White Male \
+  --constraint EO \
+  --base_learner Logistic \
+  --deploy onnx \
+  --moo_vis True
+```
 [using local "csv" data](https://docs.python.org/3/library/csv.html)
-
-    python -m mmm_fair.train_and_deploy \
-      --dataset mydata.csv \
-      --target label_col \
-      --prots prot_1 prot_2 prot_3 \
-      --nprotgs npg1 npg2 npg3 \
-      --constraint EO \
-      --base_learner tree \
-      --deploy onnx
-
+```bash
+python -m mmm_fair.train_and_deploy \
+  --dataset mydata.csv \
+  --target label_col \
+  --prots prot_1 prot_2 prot_3 \
+  --nprotgs npg1 npg2 npg3 \
+  --constraint EO \
+  --base_learner tree \
+  --deploy onnx
+```
 #### 2. Gradient-Boosted MMM_Fair_GBT:
-
-    python -m mmm_fair.train_and_deploy \
-      --classifier MMM_Fair_GBT \
-      --dataset mydata.csv \
-      --target label_col \
-      --prots prot_1 prot_2 \
-      --nprotgs npg1 npg2 \
-      --constraint DP \
-      --alpha 0.5 \
-      --early_stop True \
-      --n_learners 100 \
-      --deploy pickle \
-      --moo_vis True
-
+```bash
+python -m mmm_fair.train_and_deploy \
+  --classifier MMM_Fair_GBT \
+  --dataset mydata.csv \
+  --target label_col \
+  --prots prot_1 prot_2 \
+  --nprotgs npg1 npg2 \
+  --constraint DP \
+  --alpha 0.5 \
+  --early_stop True \
+  --n_learners 100 \
+  --deploy pickle \
+  --moo_vis True
+```
 
 #### Note: 
 1. Setting --moo_vis True triggers an interactive local HTML page for exploring the multi-objective trade-offs in 3D plots (accuracy vs. class-imbalance vs. fairness, etc.).

@@ -465,7 +465,7 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         preference=None,
         pareto=False,
         pos_class=None,
-        constraints="DP",
+        constraint="DP",
         gamma=0.5,
         tracking=False  ###This is a developer option for debugging
     ):  # ,protected_attr=['Race','Sex']):
@@ -498,10 +498,10 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         valid_constraints = {"DP", "EP", "EO", "TPR", "FPR"}  # Using a set for quick membership testing
         self.gamma=gamma
         self.tracking=tracking
-        if constraints not in valid_constraints:
+        if constraint not in valid_constraints:
             raise ValueError(f"Invalid fairness constraint '{constraints}'. Must be one of {valid_constraints}.")
         
-        self.constraints=constraints
+        self.constraints=constraint
         self.debug = debug
         self.imbalance_weights="balanced"
 

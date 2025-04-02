@@ -39,7 +39,7 @@ def get_hparams(
             "random_state": 0,
             "n_estimators": 500,
             "gamma": 0.25,
-            "constraints": cstr,
+            "constraint": cstr,
             "saIndex": None,
             "saValue": None
         }
