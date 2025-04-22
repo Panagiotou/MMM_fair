@@ -90,8 +90,8 @@ document.addEventListener("DOMContentLoaded", function(){
     }
 
     // Send message function
-    function sendMessage(){
-        let userMessage = chatInput.value.trim();
+    function sendMessage(customMessage = null){
+        let userMessage = customMessage || chatInput.value.trim();
         if (!userMessage) return;
         chatInput.value = "";
 
@@ -104,6 +104,38 @@ document.addEventListener("DOMContentLoaded", function(){
         })
         .then(response => response.json())
         .then(data => {
+            if (data.require_api_key) {
+               const providerName = data.provider || "the selected LLM";
+               const apiKey = prompt(`🔐 To use AI explanation features, please enter your LLM (${providerName}) API key:`);
+               if (!apiKey) {
+                    alert("No API key entered. LLM features will remain disabled.");
+                    return;
+                }
+               if (apiKey) {
+                    fetch("/provide_api_key", {
+                        method: "POST",
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify({api_key: apiKey, model:providerName})
+                    })
+                    .then(response => response.json())
+                    .then(res => {
+                        if (res.success) {
+                            alert(res.message || "API key saved successfully. Now you can ask for explanations!");
+                            // Retry previous message after setting API key
+                            sendMessage(userMessage);  // re-run the same message
+                        } else {
+                            alert("Failed to save API key: " + res.error);
+                        }
+                    })
+                    .catch(err => {
+                        alert("Error sending API key.");
+                        console.error(err);
+                    });
+                    return;  // Don't render chat until re-tried
+                } else {
+                    alert("API key was not provided. LLM features remain disabled.");
+               }
+            }
             data.chat_history.forEach(chat => {
                 renderMessage(chat.sender, chat.text, true);
             });
@@ -121,6 +153,7 @@ document.addEventListener("DOMContentLoaded", function(){
             // Auto-scroll to new messages
             chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: "smooth" });
         })
+       
         .catch(error => console.error("Error:", error));
     }
 

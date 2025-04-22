@@ -21,22 +21,27 @@ from mmm_fair.viz_trade_offs import plot2d, plot3d
 from mmm_fair.mmm_fair import MMM_Fair
 from mmm_fair.mmm_fair_gb import MMM_Fair_GradientBoostedClassifier
 from mmm_fair.data_process import data_uci  # Importing data processing module
+from mmm_fair.mchat.langchain_utils import (get_langchain_agent, 
+                                    summarize_html_report, 
+                                    get_available_llm_providers)
+from mmm_fair.mchat.openai_utils import get_openAI_llm
+from mmm_fair.mchat.groq_utils import get_groq_llm
 
 import uuid
 import plotly.io as pio
+llm=None
 
-# Ensure 'static/plots' directory exists
-PLOT_DIR = "mmm_fair/mchat/static/"
+BASE_DIR = os.path.dirname(__file__)
+PLOT_DIR = os.path.join(BASE_DIR, "static")
 os.makedirs(PLOT_DIR, exist_ok=True)
 
-app = Flask(
-    __name__,
-    template_folder=os.path.join(os.path.dirname(__file__), "templates"),
-    static_folder=os.path.join(os.path.dirname(__file__), "static")
-)
+app = Flask(__name__,
+            template_folder=os.path.join(BASE_DIR, "templates"),
+            static_folder=PLOT_DIR)
 app.secret_key = "SOME_SECRET"
 app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
+
 
 # Define chat arguments
 CHAT_ARGS = [  
@@ -83,23 +88,160 @@ DEFAULT_BOT_MESSAGES = [
 
 @app.route("/")
 def index():
+    session["llm_enabled"] = False
+    session["api_enabled"] = False
     return render_template("index.html")
+    
+@app.route('/static/<path:filename>')
+def serve_static_files(filename):
+    full_path = os.path.join(PLOT_DIR, filename)
+    print(f"Serving static file: {full_path}")
+    return send_from_directory(PLOT_DIR, filename)
+
+@app.route("/provide_api_key", methods=["POST"])
+def provide_api_key():
+    try:
+        env_key_map = {
+                "openai": "OPENAI_API_KEY",
+                "chatgpt": "OPENAI_API_KEY",
+                "groq": "GROQ_API_KEY",
+                "groqai": "GROQ_API_KEY",
+                "together": "TOGETHER_API_KEY"
+            }
+        data = request.json
+        api_key = data.get("api_key", "").strip()
+        model = data.get("model", "").strip()
+        if not api_key:
+            return jsonify({"success": False, "error": "No API key provided."})
+
+        if not model:
+            return jsonify({"success": False, "error": "No LLM provider specified."})
+        
+        env_var = env_key_map.get(model.lower())
+        if not env_var:
+            return jsonify({"success": False, "error": f"Unknown provider '{model}'."})
+            
+        os.environ[env_var] = api_key
+        session["api_enabled"] = True
+
+        return jsonify({"success": True, "message": "✅ API key accepted. LLM features are now enabled."})
+
+    except ImportError:
+        return jsonify({
+            "success": False,
+            "error": "LangChain/OpenAI module not installed. Install with: pip install mmm-fair[llm-gpt]"
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": f"Unexpected error occurred: {str(e)}"
+        })
+
 
 @app.route("/start_chat", methods=["POST"])
 def start_chat():
     session.clear()
-    session["chat_history"] = list(DEFAULT_BOT_MESSAGES)
+    #session["chat_history"] = list(DEFAULT_BOT_MESSAGES)
     session["user_args"] = {}
     session["plot_all_url"]=''
+    if session.get("llm_enabled"):      
+        template=[("system","You are an assistant inside the MMM-Fair Chat."),
+                  ("User", "Greet the user politely and explain that this tool can train fairness-aware models.Use the following context: {context}")]
+        llm = get_openAI_llm()
+        llm_agent=get_langchain_agent(llm,template)
+        message = langchain_agent.invoke({"context": DEFAULT_BOT_MESSAGES[0]["text"]})
+        session["chat_history"] = [{"sender": "bot", "text": message}]
+    else:
+        session["chat_history"] = list(DEFAULT_BOT_MESSAGES)
     return jsonify({"ok": True})
 
+def prompt_for_llm_provider(chat_history):
+    available = get_available_llm_providers()
+    session["valid_providers"] = available
+    if not available:
+        chat_history.append({
+            "sender": "bot",
+            "text": "⚠️ No LLM providers are available. Please install with:\n"
+                    "`pip install mmm-fair[llm-gpt]`, `[llm-groq]`, or `[llm-together]`"
+        })
+    else:
+        session["llm_enabled"]=True
+        
+        chat_history.append({
+            "sender": "bot",
+            "text": f"🧠 Please type the name of one of the available providers for explanation: {', '.join(list(available.keys())[::2])}"
+        })
+    return chat_history
+
+
+def handle_llm_provider_selection(user_msg, chat_history):
+    user_selection = user_msg.lower()
+    valid_providers = session.get("valid_providers")
+    if user_selection in valid_providers:
+        session["llm_provider"] = user_selection
+        chat_history.append({
+            "sender": "bot",
+            "text": f"✅ Provider '{user_selection}' selected. Please type 'yes' again to continue."
+        })
+    else:
+        chat_history.append({
+            "sender": "bot",
+            "text": f"⚠️ Unknown provider '{user_selection}'. Please choose one of: {', '.join(list(valid_providers.keys()))}"
+        })
+    return chat_history
+#"openai", "chatgpt", "groqai", "groq", "togetherai", "together"
 @app.route("/ask_chat", methods=["POST"])
 def ask_chat():
     chat_history = session.get("chat_history", [])
     user_args = session.get("user_args", {})
     user_msg = request.json.get("message", "").strip()
 
-    # **NEW FEATURE**: If user enters "default", skip everything and run with default_args
+    if session.get("last_action") == "plotted" and user_msg.lower() in ["yes", "explain", "please explain", "what do these mean?", "openai", "chatgpt", "groqai", "groq", "togetherai", "together"]:
+        if not session.get("llm_enabled"):
+            session["llm_provider"] = "in-progress"
+            chat_history = prompt_for_llm_provider(chat_history)
+            session["chat_history"] = chat_history
+            
+            return jsonify({"chat_history": chat_history[-1:]})
+        elif session.get("llm_provider") and len(session.get("valid_providers"))>0 : 
+            if session.get("llm_provider")== "in-progress":
+                chat_history = handle_llm_provider_selection(user_msg, chat_history)
+                return jsonify({"chat_history": chat_history[-1:]})
+            else:
+                if not session.get("api_enabled"):
+                    return jsonify({"require_api_key": True, "provider": session.get("llm_provider")})
+                try:
+                    vis_all=session.get("plot_all_url")
+                    vis_fair=session.get("plot_fair_url")
+                    vis_table=session.get("plot_table_path")
+                    providers= session.get("valid_providers")
+                    selected_model = session.get("llm_provider")
+                    llm = providers[selected_model]()
+                    template=[("system", "You are a fairness analysis expert, specially skilled to point out trade-offs between different performance metrics and fairness metrics, and gives suggestive guidance to user where fairness needs to be improved."),
+                    ("user", "Please explain in brief summary the following given report  focusing mainly onthe most important numbers about fairness and predictive performance across protected attributes:\n{context}\n\n"
+                     )]
+                    llm_agent=get_langchain_agent(llm,template)
+                    summary_response = summarize_html_report(vis_table,llm_agent)
+                    
+                except Exception as e:
+                    if "openai" in str(e).lower() or "key" in str(e).lower() or "quota" in str(e).lower():
+                        return jsonify({"require_api_key": True})  # 🔁 Trigger prompt in chat.js
+                
+                    summary_response = f"(⚠️ Could not summarize the plot: {e})"
+            
+                chat_history.append({"sender": "bot", "text": summary_response})
+                #experimental resetting provider after use
+                del session["valid_providers"]
+                session["last_action"] = "summarized"
+                session["chat_history"] = chat_history
+                return jsonify({"chat_history": chat_history[-1:]})
+        elif session.get("llm_provider") == "in-progress" and len(session.get("valid_providers"))==0:
+            chat_history.append({
+            "sender": "bot",
+            "text": "You can also choose a Theta index below to update your model, and corresponding model's performance will also be updated. To start again with another Data/ Model, click on 'reset chat' 🙂"
+        })
+            return jsonify({"chat_history": chat_history[-1:]})
+    
     if not user_args and user_msg.lower() == "default":
         for arg in default_args:
             if arg not in user_args:
@@ -107,15 +249,19 @@ def ask_chat():
         session["classifier"]=user_args["classifier"]
         chat_history.append({"sender": "bot", "text": "Running MMM_Fair with default parameters..."})
         vis_all, vis_fair = run_mmm_fair_app(default_args)
-        #chat_history.append({"sender": "bot", "text": "Training complete with default parameters!"})
-        #session["chat_history"] = chat_history
-        #return jsonify({"chat_history": chat_history[-1:]})
         
+        default_resp="✅ Training complete! Here in the generated pareto plots (upper box) you see various solution points (models) available, where each solution point (denoted by theta: number) shows a different trade-off point between the different training objectives. \n\n The performance of the suggested best model is also plotted (lower box). You can also choose a Theta index below to update your model, and corresponding model's performance will also be updated."
+        session["last_action"] = "plotted"
+
         return jsonify({
-        "chat_history": [{"sender": "bot", "text": "Here is the Pareto front. Select a Theta index."}],
-        "plot_all_url": vis_all,
-        "plot_fair_url": vis_fair
-            })
+                                "chat_history": [{
+                                    "sender": "bot",
+                                    "text": f"{default_resp}\n\n If you'd like me to explain what you're seeing, just type 'yes'.\n"
+                                }],
+                                "plot_all_url": vis_all,
+                                "plot_fair_url": vis_fair
+                            })
+ 
 
     # Add user message
     if user_msg:
@@ -131,17 +277,25 @@ def ask_chat():
             session["classifier"]=user_args["classifier"]
             vis_all, vis_fair = run_mmm_fair_app(user_args)
             #chat_history.append({"sender": "bot", "text": result_msg})
+            default_resp="✅ Training complete! Here in the generated pareto plots (upper box) you see various solution points (models) available, where each solution point (denoted by theta: number) shows a different trade-off point between the different training objectives. \n\n The performance of the suggested best model is also plotted (lower box). You can also choose a Theta index below to update your model, and corresponding model's performance will also be updated."
+            session["last_action"] = "plotted"
+            
             return jsonify({
-                    "chat_history": [{"sender": "bot", "text": "Here is the Pareto front. Select a Theta index."}],
-                    "plot_all_url": vis_all,
-                    "plot_fair_url": vis_fair
-                })
+                            "chat_history": [{
+                                "sender": "bot",
+                                "text": f"{default_resp}\n\n If you'd like me to explain what you're seeing, just type 'yes'.\n"
+                            }],
+                            "plot_all_url": vis_all,
+                            "plot_fair_url": vis_fair
+                        })
+
         else:
             chat_history.append({
                 "sender": "bot",
                 "text": "We have all arguments. Type 'run' to start training or 'reset' to start over."
             })
     else:
+        
         current_arg = missing_args[0]
         valid, clean_val, err_msg = validate_arg(current_arg, user_msg, user_args)
 
@@ -169,7 +323,7 @@ def ask_chat():
         else:
             #valid, clean_val, err_msg = validate_arg(current_arg, user_msg, user_args)
             if not valid:
-                chat_history.append({"sender": "bot", "text": f"Error: {err_msg}\nPlease re-enter {current_arg}."})
+                chat_history.append({"sender": "bot", "text": f"That input wasn’t quite right: {err_msg}. Could you try entering {current_arg} again?"})
             else:
                 user_args[current_arg] = clean_val
                 chat_history.append({"sender": "bot", "text": f"Set {current_arg} = {clean_val}."})
@@ -177,7 +331,7 @@ def ask_chat():
         if new_missing:
             next_arg = new_missing[0]
             prompt = get_prompt_for_arg(next_arg, user_args)
-            chat_history.append({"sender": "bot", "text": prompt})
+            chat_history.append({"sender": "bot", "text": f"Thanks! Now let's handle the next step- \n{prompt}"})
         else:
             chat_history.append({"sender": "bot",
                 "text": "All arguments captured. Type 'run' to train, or 'reset' to start over."})
@@ -185,7 +339,7 @@ def ask_chat():
 
     session["chat_history"] = chat_history
     session["user_args"] = user_args
-    return jsonify({"chat_history": chat_history[-2:]})
+    return jsonify({"chat_history": chat_history[-1:]})
 
 
 def get_missing_args(user_args):
@@ -385,6 +539,7 @@ def run_mmm_fair_app(user_args):
     plot_fair_path = os.path.join(PLOT_DIR, plot_fair)
     plot_table_path = os.path.join(PLOT_DIR, plot_table)
 
+    session['plot_table_path']=plot_table_path
     # Save the Plotly-generated HTML directly to files
     with open(plot_all_path, "w") as f:
         f.write(vis_all)
@@ -397,9 +552,7 @@ def run_mmm_fair_app(user_args):
     session["plot_fair_url"]=f"/static/{plot_table}"
     return f"/static/{plot_all}", f"/static/{plot_table}"
 
-@app.route('/static/<path:filename>')
-def serve_static_files(filename):
-    return send_from_directory("static", filename)
+
 
 @app.route('/static/<path:filename>')
 def serve_plot(filename):
@@ -409,7 +562,6 @@ def serve_plot(filename):
 
 @app.route("/update_model", methods=["POST"])
 def update_model():
-    # Get Theta value from the request
     data = request.json
     theta_index = int(data.get("theta", -1))
 
@@ -449,6 +601,7 @@ def update_model():
     plot_table = f"table_.html"
     p2=f"table_{unique_id}.html"
     plot_table_path = os.path.join(PLOT_DIR, p2)#plot_table)
+    session['plot_table_path']=plot_table_path
 
     with open(plot_table_path, "w") as f:
         f.write(report_table)
@@ -456,11 +609,17 @@ def update_model():
         os.fsync(f.fileno())
 
 
+    timeout = 5  # max wait 5 seconds
+    waited = 0
+    while not os.path.exists(plot_table_path) and waited < timeout:
+        time.sleep(0.1)
+        waited += 0.1
+        
     session["plot_fair_url"]=f"/static/{p2}"
     return jsonify({
         "success": True,
         "message": f"Model updated with Theta index {theta_index}.",
-        "plot_fair_url": f"/static/{plot_table}"
+        "plot_fair_url": f"/static/{p2}?t={int(time.time())}"
     })
 
 @app.route("/save_model", methods=["POST"])
@@ -483,7 +642,7 @@ def save_model():
 
     # Call deploy() to save the model in the user-specified directory
     try:
-        user_args["save_path"] = save_path  # Update args with the user-selected path
+        user_args["save_path"] = save_path   # Update args with the user-selected path
         convert_to_onnx( mmm_classifier, save_path, xdata, clf)
         return jsonify({"success": True, "message": f"Model saved in {save_path}"})
     except Exception as e:

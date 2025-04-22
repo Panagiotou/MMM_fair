@@ -22,6 +22,7 @@ def convert_to_onnx(custom_model, output_path, X, model_type="mmm_fair"):
     ), "Model must be fitted before conversion."
 
     # Create directory to store ONNX + param files, e.g. "my_adult_model_dir"
+    output_path+='/model'
     model_dir = f"{output_path}_{model_type}"
     os.makedirs(model_dir, exist_ok=True)
 

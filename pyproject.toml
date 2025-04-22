@@ -18,7 +18,7 @@ mmm-fair-chat = "mmm_fair.mchat.mmm_app:main"
 
 [project]
 name = "mmm-fair"
-version = "1.0.24"
+version = "2.0.0"
 description = "A multi-objective multi-fairness boosting classifier"
 readme = "README.md"
 authors = [
@@ -44,6 +44,11 @@ dependencies = [
   "Flask",
   "Flask-Session"
 ]
+
+[project.optional-dependencies]
+llm-gpt = ["openai", "langchain>=0.1.14", "langchain-community", "bs4", "python-dotenv"]
+llm-groq = ["langchain-groq", "langchain>=0.1.14", "langchain-community", "bs4", "python-dotenv"]
+llm-together = ["langchain-together", "langchain>=0.1.14", "langchain-community", "bs4", "python-dotenv"]
 
 [project.urls]
 Homepage= "https://github.com/arjunroyihrpa/MMM_fair"

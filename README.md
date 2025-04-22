@@ -1,35 +1,28 @@
+[![PyPI](https://img.shields.io/pypi/v/mmm-fair)](https://pypi.org/project/mmm-fair/)
+
 [![MMM-Fair Logo](https://raw.githubusercontent.com/arjunroyihrpa/MMM_fair/main/images/mmm-fair.png)](https://github.com/arjunroyihrpa/MMM_fair)
 
-### MMM-Fair is a multi-objective, fairness-aware boosting classifier originally inspired by the paper: "Multi-fairness Under Class-Imbalance"
-https://link.springer.com/chapter/10.1007/978-3-031-18840-4_21
+## 🧠 What is MMM-Fair?
 
---- 
+MMM-Fair is a fairness-aware machine learning framework designed to support high-stakes AI decision-making under competing fairness and accuracy demands. The three M’s stand for:
+	•	Multi-Objective: Optimizes across classification accuracy, balanced accuracy, and fairness (specifically, maximum group-level discrimination).
+	•	Multi-Attribute: Supports multiple protected groups (e.g., race, gender, age) simultaneously, analyzing group-specific disparities.
+	•	Multi-Definition: Evaluates and compares fairness under multiple definitions—Demographic Parity (DP), Equal Opportunity (EP), and Equalized Odds (EO).
 
-The original algorithm targeted Equalized Odds (a.k.a. Disparate Mistreatment). This MMM-Fair implementation generalizes to multiple fairness objectives:
+MMM-Fair enables developers, researchers, and decision-makers to explore the full spectrum of possible trade-offs and select the model configuration that aligns with their social or organizational goals.
 
-•	Demographic Parity (DP)
-
-•	Equal Opportunity (EP)
-
-•	Equalized Odds (EO)
-
-#### We further improve the approach by:
-
-1.	Flexible Base Learners: Any scikit-learn estimator (e.g. DecisionTreeClassifier, LogisticRegression, ExtraTreeClassifier, etc.) can be used as the base learner.
-2.	Fairness-Weighted Alpha: The boosting weight (alpha) accounts for fairness metrics alongside classification error.
-3.	Dynamic Handling of Over-Boosted Samples: Reduces excessive emphasis on specific samples once fairness goals are partially met.
-4.  Gradient Boosted Tree version 
+#### 💬 No coding required:
+MMM-Fair comes with an intuitive chat-based web UI (mmm-fair-chat) that guides users step by step—just like a human assistant would. You don’t need to write a single line of code. Simply upload your dataset (or use a built-in UCI dataset), select your fairness preferences, and explore trade-offs through automatically generated visual reports and summaries. 
 
 
-#### Two Approaches: AdaBoost-Style vs. Gradient-Boosted Trees
-We provide two main classifiers:
 
-1.	MMM_Fair (Original Adaptive Boosting version)
-2.	MMM_Fair_GradientBoostedClassifier (Histogram-based Gradient Boosting approach)
+#### 🧾 LLM-Powered Chart Explanations (New!)
 
-Both handle multi-objective, multi-attribute, and multi-type fairness constraints (DP, EP, EO) but differ in how they perform the boosting internally. You can choose via the command line argument --classifier MMM_Fair or --classifier MMM_Fair_GBT.
+Starting from v2.0.0, MMM-Fair supports automatic explanation of performance and fairness trade-off plots using LLMs ([GPT](https://platform.openai.com/docs/overview), [Groq](https://console.groq.com/home), [TogetherAI](https://www.together.ai))
 
+#### MMM-Fair is not just for developers, but also for policymakers, fairness auditors, and non-technical users.
 ---
+#
 
 ## Installation
 ```bash
@@ -39,12 +32,43 @@ Requires Python 3.11+.
 
 Dependencies: numpy, scikit-learn, tqdm, pymoo, pandas, ucimlrepo, skl2onnx, etc.
 
+#### Optional Installation for LLM enabled explanation
+
+To enable this feature, install with extras (MMM-Fair currently supports only [OpenAI (chatgpt)](https://platform.openai.com/docs/overview), [GroqAI](https://console.groq.com/home), and [TogetherAI](https://www.together.ai) but in future we plan to add more):
+```bash
+# OpenAI support
+pip install "mmm-fair[llm-gpt]"
+
+# Or for Groq
+pip install "mmm-fair[llm-groq]"
+
+# Or for Together.ai
+pip install "mmm-fair[llm-together]"
+
+#Or install all of them and later decide which one to use
+pip install "mmm-fair[llm-gpt,llm-groq,llm-together]"
+```
+**we do not provide any API keys for these models and to use the llm-explanation one needs to get their own api keys from the respective llm provider.**
+
 ---
-## Usage
+
+#### Two Approaches: AdaBoost-Style vs. Gradient-Boosted Trees
+We provide two main classifiers:
+
+1.	MMM_Fair (Original Adaptive Boosting version)
+2.	MMM_Fair_GradientBoostedClassifier or MMM_Fair_GBT (Histogram-based Gradient Boosting approach) \[recommended\]
+
+Both handle multi-objective, multi-attribute, and multi-type fairness constraints (DP, EP, EO) but differ in how they perform the boosting internally. You can choose via the command line argument --classifier MMM_Fair or --classifier MMM_Fair_GBT.
+
+---
+
+
+## Usage Overview 
 The mmm-fair package provides two different usage possibilities. One is a chat based on a web-based UI (specially tailored new user, with even non-technical abckground), and the other is command line based (for ML scientist, engineers, etc.)
 
-### Usage Overview (mmm-chat)
-Right now its still terminal dependent (soon will release a destop app). So after installing one needs to bash
+### Chat-Based
+
+Right now the launch of the chat app is still terminal dependent (soon will release a destop app). So after installing the mmm-fair package one needs to bash in commandline:
 ```bash
 mmm-fair-chat
 ```
@@ -54,7 +78,9 @@ http://127.0.0.1:5000
 ```
 Then start chating with the interactive web app to get your MMM-Fair AI model.
 
-## Usage Overview (AdaBoost-Style)
+**(Optional) If you have installed MMM-Fair with LLM support and provide your API key during the session, the assistant can explain trade-off plots in natural language.**
+
+### AdaBoost-Style
 
 You can import and use MMM-Fair (original version):
 ```python
@@ -92,7 +118,7 @@ In all cases, pass the relevant saIndex (sensitive attribute array) and saValue 
 
 ---
 
-## Usage Overview (Gradient-Boosted Trees)
+### Gradient-Boosted Style (recommended)
 
 We also provide MMM_Fair_GradientBoostedClassifier. This uses a histogram-based gradient boosting approach (similar to HistGradientBoostingClassifier) but includes a custom fairness loss to train and then multi-objective post-processing step to select the best pareto-optimal ensemble round. Example:
 

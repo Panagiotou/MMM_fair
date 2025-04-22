@@ -8,4 +8,65 @@ flask_session/
 Dockerfile
 docker-compose.yml
 .dockerignore
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
 
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Flask session files
+.flask_session/
+instance/
+.env
+*.env
+*.sqlite3
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb
+
+# VSCode / PyCharm
+.vscode/
+.idea/
+
+# Mac/Linux system files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Compiled files / Caches
+*.pyo
+*.pyd
+.cache/
+__pypackages__/
+
+# Testing
+.coverage
+htmlcov/
+.tox/
+nosetests.xml
+pytest_cache/
+test-results/
+
+# Node/npm frontend (if ever used)
+node_modules/
+npm-debug.log*
+
+# MyPy, Ruff, Black, etc.
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.dmypy.json
+.pyre/

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mmm-fair
-Version: 1.0.24
+Version: 1.0.25
 Summary: A multi-objective multi-fairness boosting classifier
 Author-email: Arjun Roy <arjunroyihrpa@gmail.com>, Swati Swati <swati17293@gmail.com>
 License:                                  Apache License
@@ -224,6 +224,24 @@ Requires-Dist: plotly
 Requires-Dist: onnxruntime
 Requires-Dist: Flask
 Requires-Dist: Flask-Session
+Provides-Extra: llm-gpt
+Requires-Dist: openai; extra == "llm-gpt"
+Requires-Dist: langchain>=0.1.14; extra == "llm-gpt"
+Requires-Dist: langchain-community; extra == "llm-gpt"
+Requires-Dist: bs4; extra == "llm-gpt"
+Requires-Dist: python-dotenv; extra == "llm-gpt"
+Provides-Extra: llm-groq
+Requires-Dist: langchain-groq; extra == "llm-groq"
+Requires-Dist: langchain>=0.1.14; extra == "llm-groq"
+Requires-Dist: langchain-community; extra == "llm-groq"
+Requires-Dist: bs4; extra == "llm-groq"
+Requires-Dist: python-dotenv; extra == "llm-groq"
+Provides-Extra: llm-together
+Requires-Dist: langchain-together; extra == "llm-together"
+Requires-Dist: langchain>=0.1.14; extra == "llm-together"
+Requires-Dist: langchain-community; extra == "llm-together"
+Requires-Dist: bs4; extra == "llm-together"
+Requires-Dist: python-dotenv; extra == "llm-together"
 Dynamic: license-file
 
 [![MMM-Fair Logo](https://raw.githubusercontent.com/arjunroyihrpa/MMM_fair/main/images/mmm-fair.png)](https://github.com/arjunroyihrpa/MMM_fair)
