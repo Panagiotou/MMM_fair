@@ -1,37 +1,42 @@
-/* Global Styles */
+/* Create a wrapper for the scrollable content inside visualization container */
+.visualization-content {
+    overflow-y: auto;
+    flex: 1;
+    padding-right: 5px; /* Add some padding for the scrollbar */
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+}/* Global Styles */
 body {
     font-family: 'Arial', sans-serif;
     background: linear-gradient(to right, #4facfe, #00f2fe);
-    display: flex;
-    justify-content: center;
-    align-items: flex-start; /* Aligns content at the top */
-    height: 120vh;
-    overflow-y: auto; /* Enables scrolling */
     margin: 0;
+    padding: 0;
+    height: 100vh;
+    overflow: hidden;
 }
 
 /* Main Container */
 .container {
-    width: 1500px;
-    background: white;
-    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
-    border-radius: 2px;
-    padding: 10px;
-    text-align: center;
+    height: 100vh;
+    width: 100vw;
     display: flex;
     flex-direction: column;
     position: relative;
-    overflow: hidden; /* Prevents layout shift */
+    overflow: visible; /* Changed from hidden to show rounded corners */
 }
 
 /* Header */
 .header {
-    position: sticky;
-    top: 0;
     background: white;
     padding: 10px;
     z-index: 1000;
     box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    margin-top: 10px;
+    margin-right: 10px;
+    margin-left: 10px;
 }
 
 /* Header Content: Logo Left, Text Center */
@@ -39,12 +44,12 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 20px; /* Space between logo and text */
+    gap: 20px;
 }
 
 /* Logo Styling */
 .logo {
-    width: 120px; /* Adjust width */
+    width: 120px;
     height: auto;
 }
 
@@ -68,31 +73,103 @@ body {
 .content {
     display: flex;
     justify-content: space-between;
-    gap: 2px;
-    overflow-y: auto; /* Enables scrolling inside content */
-    max-height: 100vh; /* Prevents layout shift */
+    gap: 10px;
+    flex: 1;
+    padding: 0 10px 10px 10px; /* Added bottom padding */
+    overflow: visible; /* Changed from hidden to show the full rounded corners */
+    margin-bottom: 20px; /* Increased margin at bottom */
+    position: relative;
+    z-index: 1; /* Ensure content is above other elements */
 }
+
+
+
+/* Target Plotly elements when used inside iframe */
+/* iframe.visualization-iframe {
+height:  100%; 
+width:  100%; 
+overflow: hidden;
+} */
+  
+.viz-title {
+margin-bottom: 10px;
+font-weight: 600;
+}
+/* Visualization Box */
+#visualization-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: inset 0px 0px 5px rgba(0, 0, 0, 0.1);
+    height: calc(100vh - 120px); /* Adjusted height to add bottom margin */
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 20px; /* Added bottom margin */
+    border-bottom-left-radius: 10px !important;
+    border-bottom-right-radius: 10px !important;
+    overflow-y: auto;
+    gap: 0; /* No space between child divs */
+}
+
 
 /* Chat Box */
 #chat-container {
-    width: 40%;
-    height: 722px;
-    overflow-y: auto; /* Enables scrolling inside chat */
-    background: #f9f9f9;
+    width: 60%;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
     border-radius: 10px;
-    padding: 10px;
     box-shadow: inset 0px 0px 5px rgba(0, 0, 0, 0.1);
+    height: calc(100vh - 120px); /* Adjusted height to add bottom margin */
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 20px; /* Added bottom margin */
+    border-bottom-left-radius: 10px !important;
+    border-bottom-right-radius: 10px !important;
 }
 
 /* Chat Messages */
 #chat-box {
     text-align: left;
     padding: 10px;
-    max-height: 600px;
-    overflow-y: auto; /* Enables scrolling inside chat messages */
+    flex: 1;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 8px; /* Adds space between messages */
+    gap: 8px;
+    margin-bottom: 110px; /* Space for input and reset button */
+    height: calc(100% - 110px);
+    background-color: #ffffff; /* Match parent background */
+    z-index: 1;
+}
+
+/* Input & Buttons */
+.chat-input-container {
+    display: flex;
+    background: #ffffff;
+    position: absolute; 
+    bottom: 60px;
+    left: 10px; 
+    right: 10px;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px 0;
+}
+
+/* Reset Button Container */
+.reset-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: transparent; /* Made transparent so it doesn't block the rounded corners */
+    padding: 0 0 10px 0;
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    z-index: 5; /* Ensure it's above other elements but doesn't hide corners */
 }
 
 /* User Messages - Align Right */
@@ -100,12 +177,12 @@ body {
     background-color: #4facfe;
     color: white;
     text-align: right;
-    align-self: flex-end; /* Pushes messages to the right */
+    align-self: flex-end;
     padding: 10px;
     border-radius: 12px;
     max-width: 80%;
     word-wrap: break-word;
-    border-top-right-radius: 2px;  /* Rounded on all but top-right */
+    border-top-right-radius: 2px;
 }
 
 /* Bot Messages - Align Left */
@@ -113,19 +190,15 @@ body {
     background-color: #e0e0e0;
     color: black;
     text-align: left;
-    align-self: flex-start; /* Pushes messages to the left */
+    align-self: flex-start;
     padding: 10px;
     border-radius: 12px;
     max-width: 80%;
     word-wrap: break-word;
-    border-top-left-radius: 2px; /* Rounded on all but top-left */
+    border-top-left-radius: 2px;
 }
 
-/* Input & Buttons */
-.chat-input-container {
-    display: flex;
-    margin-top: 10px;
-}
+/* Input field */
 #chat-input {
     flex: 1;
     padding: 10px;
@@ -133,6 +206,7 @@ body {
     border-radius: 5px;
     max-width: 80%;
 }
+
 #send-btn {
     background-color: #4facfe;
     color: white;
@@ -142,68 +216,64 @@ body {
     border-radius: 5px;
     text-align: center;
 }
+
 #send-btn:hover {
     background-color: #00c6ff;
 }
 
 /* Reset Button */
-.reset-container {
-    margin-top: 10px;
-}
 #reset-btn {
     background-color: #ff4747;
     color: white;
     border: none;
-    padding: 10px;
+    padding: 10px 20px;
+    width: auto;
     cursor: pointer;
     border-radius: 5px;
 }
+
 #reset-btn:hover {
     background-color: #e84141;
 }
 
-/* Visualization Box */
-#visualization-container {
-    width: 55%;
-    background: #ffffff;
-    border-radius: 10px;
-    padding: 15px;
-    text-align: center;
-    box-shadow: inset 0px 0px 5px rgba(0, 0, 0, 0.1);
-    overflow-y: auto;
-    max-height: 600px;
-}
+
 
 /* Scrollable Plot Boxes */
 #plot3d-box, #plot2d-box {
-    width: 100%;
+    width: calc(100% - 20px); /* Adjust width to account for padding */
     min-height: 300px;
-    background: #f4f4f4;
-    border-radius: 10px;
+    border-radius: 8px;
     padding: 10px;
-    margin-bottom: 10px;
-    box-shadow: inset 0px 0px 5px rgba(0, 0, 0, 0.1);
-    overflow-y: auto;
-    max-height: 500px;
+    margin-bottom: 20px;
+    background-color: transparent; /* Make background transparent */
+    position: relative;
+    z-index: 1;
 }
 
 /* Theta Selection */
 #theta-selection {
-    margin-top: 10px;
+    margin: 0 auto;
     text-align: center;
+    z-index: 2;
+    background-color: #ffffff; /* Match container background */
+    border-bottom-left-radius: 10px; /* Explicitly set bottom corners */
+    border-bottom-right-radius: 10px;
 }
+
 #theta-selection h3 {
     font-size: 16px;
     color: #333;
     margin-bottom: 5px;
 }
-#theta-input {
-    width: 80px;
+
+#theta-input, #save-path {
+    width: 180px;
     padding: 5px;
     border: 2px solid #4facfe;
     border-radius: 5px;
     text-align: center;
 }
+
 #theta-btn, #save-btn {
     background-color: #4facfe;
     color: white;
@@ -213,6 +283,293 @@ body {
     border-radius: 5px;
     margin-left: 5px;
 }
+
 #theta-btn:hover, #save-btn:hover {
     background-color: #00c6ff;
+}
+
+/* Option buttons within messages */
+.option-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+    transition: opacity 0.5s ease, transform 0.4s ease;
+}
+
+/* Animation for buttons appearing */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.option-button {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 16px;
+    background-color: #34495e;
+    color: white;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+    white-space: nowrap;
+    line-height: 1.2;
+    animation: fadeInUp 0.3s ease forwards;
+    animation-delay: calc(var(--btn-index, 0) * 0.1s);
+}
+
+.option-button:hover {
+    background-color: #2c3e50;
+    transform: translateY(-2px);
+}
+
+.option-button:active {
+    transform: translateY(1px);
+}
+
+.bot .option-button {
+    background-color: #3498db;
+}
+
+.bot .option-button:hover {
+    background-color: #2980b9;
+}
+
+/* Feature Selection UI Styles */
+.feature-selector-container {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.feature-selector-container h4 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-size: 16px;
+    color: #2c3e50;
+}
+
+.section-label {
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #34495e;
+}
+
+/* Recommended features section */
+.recommended-features {
+    margin-bottom: 15px;
+}
+
+.recommended-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.feature-button {
+    padding: 6px 12px;
+    border-radius: 16px;
+    background-color: #e1eaf1;
+    color: #2c3e50;
+    border: 1px solid #cbd5e0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 13px;
+}
+
+.feature-button:hover {
+    background-color: #d1e0eb;
+}
+
+.feature-button.recommended {
+    background-color: #ebf5ff;
+    border-color: #b3d4ff;
+    color: #2a6baf;
+}
+
+.feature-button.recommended:hover {
+    background-color: #d9ecff;
+}
+
+.feature-button.selected {
+    background-color: #3498db;
+    color: white;
+    border-color: #2980b9;
+}
+
+/* All features dropdown section */
+.all-features {
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.feature-dropdown {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    background-color: white;
+    font-size: 14px;
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+.add-feature-btn {
+    align-self: flex-start;
+    padding: 6px 12px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-size: 13px;
+}
+
+.add-feature-btn:hover {
+    background-color: #2980b9;
+}
+
+/* Selected features section */
+.selected-features {
+    margin-bottom: 15px;
+}
+
+.selected-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 30px;
+    padding: 10px;
+    background-color: white;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+}
+
+.feature-tag {
+    display: flex;
+    align-items: center;
+    background-color: #3498db;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 16px;
+    font-size: 13px;
+    gap: 5px;
+    animation: tagAppear 0.3s ease-out forwards;
+}
+
+.remove-tag {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 2px;
+}
+
+.remove-tag:hover {
+    color: #ffcccc;
+}
+
+/* Submit button */
+.submit-features-btn {
+    width: 100%;
+    padding: 10px;
+    background-color: #27ae60;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.submit-features-btn:hover {
+    background-color: #219653;
+}
+
+/* Animation for new tags */
+@keyframes tagAppear {
+    from { transform: scale(0.8); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+/* Styles for API Key Input UI */
+.api-key-container {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 10px;
+    background-color: #f9f9f9;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.api-key-container h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #333;
+    font-size: 16px;
+}
+
+.api-key-input-group {
+    display: flex;
+    margin-bottom: 10px;
+}
+
+.api-key-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px 0 0 4px;
+    font-size: 14px;
+    outline: none;
+}
+
+.api-key-input:focus {
+    border-color: #4a90e2;
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+}
+
+.api-key-submit-btn {
+    background-color: #4a90e2;
+    color: white;
+    border: none;
+    border-radius: 0 4px 4px 0;
+    padding: 8px 15px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.api-key-submit-btn:hover {
+    background-color: #3a80d2;
+}
+
+.api-key-help {
+    margin: 5px 0 0;
+    font-size: 12px;
+    color: #666;
+    font-style: italic;
+}
+
+/* Animation for API key input appearance */
+.api-key-container {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
 }

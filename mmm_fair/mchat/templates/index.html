@@ -32,7 +32,7 @@
         <!-- Main Content: Chat + Visualization -->
         <div class="content">
             <!-- Chat Box (With Scrolling) -->
-            <div id="chat-container" style="overflow-y: auto; max-height: 900px;">
+            <div id="chat-container">
                 <div id="chat-box"></div>
 
                 <div class="chat-input-container">
@@ -47,23 +47,10 @@
             </div>
 
             <!-- Visualization Box (With Scrolling) -->
-            <div id="visualization-container" style="overflow-y: auto; max-height: 900px;">
-                <h2>Trade-offs and Performance</h2>
+            <div id="visualization-container">
 
-                <div id="plot3d-box" style="width: 98%; min-height: 300px; border: 1px solid #ccc; overflow-y: auto;"></div>
-                <div id="plot2d-box" style="width: 98%; min-height: 300px; border: 1px solid #ccc; overflow-y: auto;"></div>
-
-                <!-- Theta Selection -->
-                <div id="theta-selection">
-                    <h3>Select Theta for Model Update</h3>
-                    <input type="number" id="theta-input" min="0" placeholder="Enter Theta index">
-                    <button id="theta-btn">Update Model</button>
-
-                    <h3>Save Model</h3>
-                    <input type="text" id="save-path" placeholder="Enter directory path">
-                    <button id="save-btn">Save Onnx</button>
-                </div>
             </div>
+
         </div>
     </div>
 
