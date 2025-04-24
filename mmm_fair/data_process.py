@@ -47,6 +47,11 @@ def data_uci(
         raise Exception("At least two categorical columns are required.")
     label = all_raw_data.data.targets[target]
 
+    if name == "adult":
+        # Just an example if you want to transform e.g. "."
+        label = label.str.replace(".", "", regex=False)
+
+
     csv_dataset = CSV(
         raw_data,
         numeric=numeric,
