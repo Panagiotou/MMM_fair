@@ -59,3 +59,44 @@ def data_uci(
         labels=label,
     )
     return csv_dataset
+
+
+
+def data_local(
+    raw_data: pd.DataFrame,
+    target: str = None
+) -> CSV:
+    
+    numeric = [
+        col
+        for col in raw_data
+        if pd.api.types.is_any_real_numeric_dtype(raw_data[col])
+        and len(set(raw_data[col])) > 10
+    ]
+    numeric_set = set(numeric)
+    categorical = [col for col in raw_data if col not in numeric_set]
+    if len(categorical) < 1:
+        raise Exception("At least one categorical column is required.")
+    if target is  None:
+        if 'class' in categorical:
+            target = 'class'
+        elif 'Class' in categorical:
+            taget = 'Class'
+        elif 'Y' in categorical:
+            target= 'Y'
+        elif 'y' in categorical:
+            target = 'y'
+        else:
+            target= categorical[-1]
+        categorical.remove(target)
+    label = raw_data[target].copy()
+    raw_data=raw_data.drop(columns=[target])
+ 
+
+    csv_dataset = CSV(
+        raw_data,
+        numeric=numeric,
+        categorical=categorical,
+        labels=label,
+    )
+    return csv_dataset

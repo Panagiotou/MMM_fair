@@ -11,8 +11,9 @@
     <!-- Include CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='chat.css') }}">
 </head>
-<body>
 
+<body onload="document.body.className = localStorage.getItem('mmmfair_theme') || 'dark';">
+    <button id="theme-toggle">🌙 Dark Mode</button>
     <!-- Main Container -->
     <div class="container">
         <!-- Header with Logo on the Left & Text Centered -->
@@ -56,5 +57,9 @@
 
     <!-- Include JavaScript -->
     <script src="{{ url_for('static', filename='chat.js') }}"></script>
+    <div id="loading-overlay" style="display: none;">
+      <div class="spinner"></div>
+      <p class="loading-text">Please wait...</p>
+    </div>
 </body>
 </html>

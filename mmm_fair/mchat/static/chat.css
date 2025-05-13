@@ -1,4 +1,79 @@
-/* Create a wrapper for the scrollable content inside visualization container */
+/* === THEME SUPPORT === */
+body.light {
+  background-color: #f8f9fa;
+  color: #111;
+}
+
+body.dark {
+  background-color: #1e1e1e;
+  color: #f0f0f0;
+}
+
+body.dark #chat-box,
+body.dark #chat-container,
+body.dark #visualization-container,
+body.dark .reset-container,
+body.dark .chat-input-container,
+body.dark #theta-selection {
+  background-color: #2c2c2c;
+  color: #f0f0f0;
+}
+
+body.dark #chat-input,
+body.dark #theta-input,
+body.dark #save-path {
+  background-color: #444;
+  color: #f0f0f0;
+  border-color: #888;
+}
+
+body.dark #send-btn,
+body.dark #theta-btn,
+body.dark #save-btn {
+  background-color: #4facfe;
+}
+
+body.dark #send-btn:hover,
+body.dark #theta-btn:hover,
+body.dark #save-btn:hover {
+  background-color: #00c6ff;
+}
+
+body.dark #reset-btn {
+  background-color: #c0392b;
+}
+
+body.dark #reset-btn:hover {
+  background-color: #a93226;
+}
+
+body.dark .message.bot {
+  background-color: #333;
+  color: #eee;
+}
+
+body.dark .message.user {
+  background-color: #0056b3;
+  color: white;
+}
+
+/* === THEME TOGGLE BUTTON === */
+#theme-toggle {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  background-color: transparent;
+  color: inherit;
+  border: 1px solid #aaa;
+  padding: 5px 10px;
+  cursor: pointer;
+  border-radius: 5px;
+  z-index: 9999;
+}
+
+
+
+/*--------------------------*/
 .visualization-content {
     overflow-y: auto;
     flex: 1;
@@ -572,4 +647,39 @@ font-weight: 600;
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
+}
+
+#loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.spinner {
+  border: 6px solid #f3f3f3;
+  border-top: 6px solid #4facfe;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 10px;
+}
+
+.loading-text {
+  color: #fff;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }

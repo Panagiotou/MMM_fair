@@ -1,6 +1,5 @@
-// To fix the scrolling issues, we need to improve the following functions
-// by adding proper scroll behavior whenever content is dynamically added
 document.addEventListener("DOMContentLoaded", function(){
+    
     const chatBox = document.getElementById("chat-box");
     const chatInput = document.getElementById("chat-input");
     const sendBtn = document.getElementById("send-btn");
@@ -10,6 +9,54 @@ document.addEventListener("DOMContentLoaded", function(){
     const plot2dBox = document.getElementById("plot2d-box");
     const savePathInput = document.getElementById("save-path");
     const saveBtn = document.getElementById("save-btn");
+
+    // === THEME TOGGLE FUNCTIONALITY ===
+    const themeToggle = document.getElementById("theme-toggle");
+    const body = document.body;
+
+    const savedTheme = localStorage.getItem("mmmfair_theme") || "dark";
+    body.classList.add(savedTheme);
+    themeToggle.textContent = savedTheme === "dark" ? "☀️ Light Mode" : "🌙 Dark Mode";
+
+    themeToggle.addEventListener("click", () => {
+        const isDark = body.classList.toggle("dark");
+        body.classList.toggle("light", !isDark);
+        themeToggle.textContent = isDark ? "☀️ Light Mode" : "🌙 Dark Mode";
+        localStorage.setItem("mmmfair_theme", isDark ? "dark" : "light");
+    });
+    document.addEventListener("DOMContentLoaded", function () {
+      
+    
+      // Set default theme if none stored
+      const savedTheme = localStorage.getItem("mmmfair_theme") || "dark";
+      body.classList.add(savedTheme);
+      themeToggle.textContent = savedTheme === "dark" ? "☀️ Light Mode" : "🌙 Dark Mode";
+    
+      // Add event listener
+      themeToggle.addEventListener("click", () => {
+        const isDark = body.classList.toggle("dark");
+        body.classList.toggle("light", !isDark);
+        themeToggle.textContent = isDark ? "☀️ Light Mode" : "🌙 Dark Mode";
+        localStorage.setItem("mmmfair_theme", isDark ? "dark" : "light");
+      });
+    
+      // Scroll iframe content into view when loaded
+        const observeIframeLoads = () => {
+        const iframes = document.querySelectorAll("iframe");
+        iframes.forEach((iframe) => {
+          iframe.addEventListener("load", () => {
+            const chatBox = document.getElementById("chat-box");
+            if (chatBox) {
+              chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: "smooth" });
+            }
+          });
+        });
+      };
+    
+      setInterval(observeIframeLoads, 2000);
+       // Re-check iframes periodically
+    });
+    // theme logic ends
     // const thetaInput = document.getElementById("theta-input");
     // const thetaBtn = document.getElementById("theta-btn");
 
@@ -80,7 +127,7 @@ document.addEventListener("DOMContentLoaded", function(){
     }
 
     // Modified typing effect function to handle feature selector UI
-    function typeText(element, text, options, messageDiv, speed = 15) {
+    function typeText(element, text, options, messageDiv, speed = 5) {
         let index = 0;
         let htmlText = text.replace(/\n/g, '<br>');
         element.innerHTML = '';
@@ -370,7 +417,7 @@ document.addEventListener("DOMContentLoaded", function(){
             alert('Please select at least one protected attribute.');
             return;
         }
-        
+        showLoading();
         fetch('/ask_chat', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -382,6 +429,7 @@ document.addEventListener("DOMContentLoaded", function(){
         })
         .then(response => response.json())
         .then(data => {
+            hideLoading();
             // Clear the feature selector UI
             const messageDiv = document.querySelector('.feature-selector-container');
             if (messageDiv) {
@@ -420,6 +468,7 @@ document.addEventListener("DOMContentLoaded", function(){
         // If it's a provider selection (for LLM), treat it specially
         const llmProviders = ['openai', 'chatgpt', 'groq', 'groqai', 'together', 'togetherai'];
         if (llmProviders.includes(value.toLowerCase())) {
+            showLoading(); 
             fetch("/ask_chat", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
@@ -427,6 +476,7 @@ document.addEventListener("DOMContentLoaded", function(){
             })
             .then(response => response.json())
             .then(data => {
+                hideLoading();
                 if (data.require_api_key) {
                     // Same API key input UI creation as in sendMessage
                     const providerName = data.provider || value;
@@ -478,7 +528,7 @@ document.addEventListener("DOMContentLoaded", function(){
             const parts = value.split("_");
             // Extract the actual value (skip "nprotg" and the attribute name)
             const actualValue = parts.slice(2).join("_");
-            
+            showLoading(); 
             fetch("/ask_chat", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
@@ -490,6 +540,7 @@ document.addEventListener("DOMContentLoaded", function(){
             })
             .then(response => response.json())
             .then(data => {
+                hideLoading();
                 // Display responses
                 if (data.chat_history && data.chat_history.length > 0) {
                     data.chat_history.forEach(chat => {
@@ -501,13 +552,55 @@ document.addEventListener("DOMContentLoaded", function(){
                 scrollToBottom();
             })
             .catch(error => console.error("Error:", error));
-        } else {
-            // Handle other button types as before
+        } else if (value === "upload_data") {
+            const fileInput = document.createElement("input");
+            fileInput.type = "file";
+            fileInput.accept = ".csv";
+            fileInput.style.display = "none";
+            document.body.appendChild(fileInput);
+            fileInput.addEventListener("change", function () {
+            const file = fileInput.files[0];
+            if (file) {
+                const formData = new FormData();
+                formData.append("file", file);
+                formData.append("button_value", "upload_data");
+                formData.append("message", "upload_data");
+                showLoading();
+
+                fetch("/ask_chat", {
+                method: "POST",
+                body: formData,
+                })
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading();
+                    if (data.chat_history?.length > 0) {
+                        data.chat_history.forEach(chat => {
+                        renderMessage(chat.sender, chat.text, chat.options, true);
+                    });
+                        } 
+                    else {
+                        renderMessage("bot", `❌ Upload failed: ${data.error}`);
+                        }
+                 scrollToBottom();   
+                })
+                .catch(error => {
+                    hideLoading();
+                    console.error("Upload error:", error);
+                    renderMessage("bot", "❌ An error occurred during upload.");
+                });
+                }
+                document.body.removeChild(fileInput);
+            });
+            fileInput.click(); 
+        }
+        
+        
+        else {
             sendButtonChoice(value);
         }
     }
-    
-    // Update model with selected theta
+
     function updateModelWithTheta(thetaValue) {
         fetch("/update_model", {
             method: "POST",
@@ -553,6 +646,7 @@ document.addEventListener("DOMContentLoaded", function(){
     function sendButtonChoice(buttonValue) {
         // Handle visualization request buttons
         if (buttonValue === "visualize_yes" || buttonValue === "visualize_no") {
+            showLoading(); 
             fetch("/ask_chat", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
@@ -563,8 +657,10 @@ document.addEventListener("DOMContentLoaded", function(){
             })
             .then(response => response.json())
             .then(data => {
+                hideLoading();
                 // Handle redirect to visualization endpoint
                 if (data.redirect) {
+                    hideLoading();
                     handleVisualizationRedirect(data.redirect);
                     return;
                 }
@@ -586,6 +682,7 @@ document.addEventListener("DOMContentLoaded", function(){
             });
         } else {
             // Original handling for other button types
+            showLoading(); 
             fetch("/ask_chat", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
@@ -596,6 +693,7 @@ document.addEventListener("DOMContentLoaded", function(){
             })
             .then(response => response.json())
             .then(data => {
+                hideLoading();
                 if (data.chat_history && data.chat_history.length > 0) {
                     data.chat_history.forEach(chat => {
                         renderMessage(chat.sender, chat.text, chat.options, true);
@@ -637,14 +735,19 @@ document.addEventListener("DOMContentLoaded", function(){
     // Show a welcome message with typing animation
     function showWelcomeMessage() {
         const welcomeOptions = [
-            {value: "MMM_Fair", text: "MMM_Fair (AdaBoost)"},
-            {value: "MMM_Fair_GBT", text: "MMM_Fair_GBT (Gradient Boosting)"},
-            {value: "default", text: "Run with default parameters"}
+            // {value: "MMM_Fair", text: "MMM_Fair (AdaBoost)"},
+            // {value: "MMM_Fair_GBT", text: "MMM_Fair_GBT (Gradient Boosting)"},
+            // {value: "default", text: "Run with default parameters"}
+            {value: "Adult", "text": "🧑 Adult (UCI)"},
+            {value: "Bank", "text": "🏦 Bank Marketing (UCI)"},
+            {value: "Credit", "text": "💳 Credit Default (UCI)"},
+            {value: "upload_data", "text": "📁 Upload your own Data (currently supported types: '.csv'"},
+            {value: "default", text: "Run with default setup on Adult data"}
         ];
         
         renderMessage("bot", 
             "👋 Hello! Welcome to MMM-Fair Chat.\n\n" +
-            "I can help you train either MMM_Fair (AdaBoost style) or MMM_Fair_GBT (Gradient Boosting style).\n" +
+            "Let's get started by selecting a dataset to work with.\n You can choose from well-known public datasets or upload your own CSV file.\n" +
             "Please select an option below:", 
             welcomeOptions, 
             true
@@ -717,6 +820,7 @@ document.addEventListener("DOMContentLoaded", function(){
         })
         .then(response => response.json())
         .then(data => {
+            hideLoading();
             if (data.success && data.plots) {
                 // Display the plot using the HTML directly
                 if (data.plots && Array.isArray(data.plots)) {
@@ -818,6 +922,13 @@ document.addEventListener("DOMContentLoaded", function(){
     
         scrollResultsToBottom();
     }
+    function showLoading() {
+          document.getElementById("loading-overlay").style.display = "flex";
+        }
+        
+        function hideLoading() {
+          document.getElementById("loading-overlay").style.display = "none";
+        }
 
 
     // Send message function
@@ -827,6 +938,7 @@ document.addEventListener("DOMContentLoaded", function(){
         chatInput.value = "";
     
         renderMessage("user", userMessage);
+        showLoading(); 
     
         fetch("/ask_chat", {
             method: "POST",
@@ -835,6 +947,7 @@ document.addEventListener("DOMContentLoaded", function(){
         })
         .then(response => response.json())
         .then(data => {
+            hideLoading();
 
             if (data.require_api_key) {
                 const providerName = data.provider || "the selected LLM";
@@ -872,6 +985,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
             // Handle redirect to visualization endpoint
             if (data.redirect) {
+                hideLoading();
                 handleVisualizationRedirect(data.redirect);
                 return;
             }
@@ -907,7 +1021,10 @@ document.addEventListener("DOMContentLoaded", function(){
             // Auto-scroll after everything is loaded
             scrollToBottom();
         })
-        .catch(error => console.error("Error:", error));
+        .catch(error => {
+                    hideLoading(); 
+                    console.error("Error:", error);
+            });
     }
     
     function createAPIKeyInput(providerName) {
@@ -990,7 +1107,7 @@ document.addEventListener("DOMContentLoaded", function(){
             if (data.success) {
                 // Auto-trigger the explanation
                 renderMessage('bot', 'Generating explanation, please wait...', null, true);
-                
+                showLoading(); 
                 // Send a request to generate the explanation
                 fetch("/ask_chat", {
                     method: "POST",
@@ -999,6 +1116,7 @@ document.addEventListener("DOMContentLoaded", function(){
                 })
                 .then(response => response.json())
                 .then(response => {
+                    hideLoading();
                     // Handle the explanation response
                     if (response.chat_history && response.chat_history.length > 0) {
                         response.chat_history.forEach(chat => {
@@ -1010,6 +1128,7 @@ document.addEventListener("DOMContentLoaded", function(){
                     scrollToBottom();
                 })
                 .catch(error => {
+                    hideLoading();
                     console.error("Error generating explanation:", error);
                     renderMessage("bot", "An error occurred while generating the explanation.", null, true);
                     scrollToBottom();
@@ -1030,51 +1149,88 @@ document.addEventListener("DOMContentLoaded", function(){
         });
     }
     
-    // Handle Theta Selection and Model Update
-    vizcont.addEventListener("click", function(e) {
-        if (e.target && e.target.id === "theta-btn") {
-            const thetaInput = document.getElementById("theta-input"); // Get it fresh at click time
-
-            const thetaValue = thetaInput.value.trim();
-            if (!thetaValue) {
-                alert("Please enter a valid Theta index!");
-                return;
-            }
     
-            fetch("/update_model", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ theta: thetaValue })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
+    // vizcont.addEventListener("click", function(e) {
+    //     // Handle Theta Selection and Model Update
+    //     if (e.target && e.target.id === "theta-btn") {
+    //         const thetaInput = document.getElementById("theta-input"); // Get it fresh at click time
 
-                    if (data.update_plots && Array.isArray(data.update_plots)) {
-                        data.update_plots.forEach(update_plot => {
-                            updateDataVisualization(update_plot);
-                        });
-                    }
-
-                    alert(`Model updated successfully with Theta ${thetaValue}`);
+    //         const thetaValue = thetaInput.value.trim();
+    //         if (!thetaValue) {
+    //             alert("Please enter a valid Theta index!");
+    //             return;
+    //         }
     
-                    if (data.plot_fair_url) {
-                        console.log("DEBUG: Updating plot2dBox with new report");
-                        plot2dBox.innerHTML = `<iframe src="${data.plot_fair_url}?t=${Date.now()}" width="100%" height="400px" frameborder="0"></iframe>`;
-                    }
-                } else {
-                    alert(`Error updating model: ${data.error}`);
-                }
-            })
-            .catch(error => console.error("Error updating model:", error));
+    //         fetch("/update_model", {
+    //             method: "POST",
+    //             headers: { "Content-Type": "application/json" },
+    //             body: JSON.stringify({ theta: thetaValue })
+    //         })
+    //         .then(response => response.json())
+    //         .then(data => {
+    //             if (data.success) {
+
+    //                 if (data.update_plots && Array.isArray(data.update_plots)) {
+    //                     data.update_plots.forEach(update_plot => {
+    //                         updateDataVisualization(update_plot);
+    //                     });
+    //                 }
+
+    //                 alert(`Model updated successfully with Theta ${thetaValue}`);
+    
+    //                 if (data.plot_fair_url) {
+    //                     console.log("DEBUG: Updating plot2dBox with new report");
+    //                     plot2dBox.innerHTML = `<iframe src="${data.plot_fair_url}?t=${Date.now()}" width="100%" height="400px" frameborder="0"></iframe>`;
+    //                 }
+    //             } else {
+    //                 alert(`Error updating model: ${data.error}`);
+    //             }
+    //         })
+    //         .catch(error => console.error("Error updating model:", error));
+    //     }
+    //     // Handle save model button
+    // if (e.target && e.target.id === "save-btn") {
+    //     saveModel();
+    // }
+    // });  
+    document.addEventListener("click", function(e) {
+      if (e.target && e.target.id === "theta-btn") {
+        const thetaInput = document.getElementById("theta-input");
+        const thetaValue = thetaInput.value.trim();
+        if (!thetaValue) {
+          alert("Please enter a valid Theta index!");
+          return;
         }
-    });  
-
+    
+        fetch("/update_model", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ theta: thetaValue })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            alert(`Model updated successfully with Theta ${thetaValue}`);
+            if (data.plot_fair_url) {
+              plot2dBox.innerHTML = `<iframe src="${data.plot_fair_url}?t=${Date.now()}" width="100%" height="400px" frameborder="0"></iframe>`;
+            }
+          } else {
+            alert(`Error updating model: ${data.error}`);
+          }
+        })
+        .catch(error => console.error("Error updating model:", error));
+      }
+    
+      if (e.target && e.target.id === "save-btn") {
+        saveModel();  
+      }
+    });
 
     // Handle Save Model Button
     function saveModel() {
-        let savePath = savePathInput.value.trim();
-        
+        //let savePath = savePathInput.value.trim();
+        const savePathInput = document.getElementById("save-path");
+        const savePath = savePathInput.value.trim();
         if (!savePath) {
             renderMessage("bot", "Please enter a valid directory path to save the model!");
             return;
@@ -1134,6 +1290,8 @@ document.addEventListener("DOMContentLoaded", function(){
 
     // Initialize
     loadSessionOnLoad();
+
+    
 });
 
 

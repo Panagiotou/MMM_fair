@@ -264,36 +264,39 @@ def train(args):
         dataset_name = args.dataset.lower()
 
     # 1. Load data
-    if dataset_name and dataset_name.endswith(".csv"):
-        # -------------------------
-        # Local CSV file fallback
-        # -------------------------
-        raw_df = pd.read_csv(args.dataset)
-
-        # Minimal auto-detection of numeric vs. categorical
-        numeric = [
-            col for col in raw_df.columns if pd.api.types.is_numeric_dtype(raw_df[col])
-        ]
-        categorical = [
-            col for col in raw_df.columns if col not in numeric and col != args.target
-        ]
-
-        # Create the CSV object from mammoth_csv.py
-        # We assume user-supplied --target is in raw_df
-        label = raw_df[args.target]
-
-        data = CSV(
-            raw_df,
-            numeric=numeric,
-            categorical=categorical,
-            labels=label,
-        )
+    if args.df is not None:
+        data= args.df
     else:
-        # -------------------------
-        # Known dataset (Adult, Bank, etc.)
-        # via data_uci function
-        # -------------------------
-        data = data_uci(dataset_name=args.dataset, target=args.target)
+        if dataset_name and dataset_name.endswith(".csv"):
+            # -------------------------
+            # Local CSV file fallback
+            # -------------------------
+            raw_df = pd.read_csv(args.dataset)
+    
+            # Minimal auto-detection of numeric vs. categorical
+            numeric = [
+                col for col in raw_df.columns if pd.api.types.is_numeric_dtype(raw_df[col])
+            ]
+            categorical = [
+                col for col in raw_df.columns if col not in numeric and col != args.target
+            ]
+    
+            # Create the CSV object from mammoth_csv.py
+            # We assume user-supplied --target is in raw_df
+            label = raw_df[args.target]
+    
+            data = CSV(
+                raw_df,
+                numeric=numeric,
+                categorical=categorical,
+                labels=label,
+            )
+        else:
+            # -------------------------
+            # Known dataset (Adult, Bank, etc.)
+            # via data_uci function
+            # -------------------------
+            data = data_uci(dataset_name=args.dataset, target=args.target)
 
     # 2. Retrieve hyperparameters & fallback for unknown data
 
@@ -715,6 +718,10 @@ def main():
         default=False,
         help="Set to True to visualize the Multi-objective plots solutions (default: False)",
     )
+    parser.add_argument(
+        "--df",
+        default=None,)
+    
     args = parser.parse_args()
 
     mmm_classifier, X_test, y_test, saIndex_test, sensitives = train(args)

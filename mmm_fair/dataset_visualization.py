@@ -106,7 +106,7 @@ def generate_nested_pie_chart(df, columns, title=None, color_scheme=None):
                     x=[None],
                     y=[None],  # Empty points for the legend item
                     mode="markers",
-                    marker=dict(color=color, size=10),
+                    marker=dict(color=color, size=15),
                     name=f"{val}",
                     legendgroup=col,  # Group the values under the feature name
                     showlegend=True,
@@ -120,6 +120,7 @@ def generate_nested_pie_chart(df, columns, title=None, color_scheme=None):
     fig.update_layout(
         margin=dict(t=50, l=10, r=10, b=10),
         uniformtext=dict(minsize=10, mode="hide"),
+        font=dict(color="#2B2B2B"),
         title={
             "text": title if title else f"Nested Visualization of {', '.join(columns)}",
             "y": 0.98,
@@ -136,8 +137,8 @@ def generate_nested_pie_chart(df, columns, title=None, color_scheme=None):
             tracegroupgap=10,  # Spacing between legend items
         ),
         # Set background color of plot and chart area to transparent
-        plot_bgcolor="rgba(0,0,0,0)",  # Transparent plot background
-        paper_bgcolor="rgba(0,0,0,0)",  # Transparent paper background
+        plot_bgcolor="#F5E8D8", #rgba(112,128,144,1)",  # Transparent plot background
+        paper_bgcolor= "#F5E8D8",  #"rgba(0,0,0,0)",  # Transparent paper background
         # Disable grid and axes lines
         xaxis=dict(
             showgrid=False, zeroline=False, showticklabels=False

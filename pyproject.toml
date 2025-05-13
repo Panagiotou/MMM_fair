@@ -18,12 +18,13 @@ mmm-fair-chat = "mmm_fair.mchat.mmm_app:main"
 
 [project]
 name = "mmm-fair"
-version = "2.0.0"
+version = "2.1.0"
 description = "A multi-objective multi-fairness boosting classifier"
 readme = "README.md"
 authors = [
   { name = "Arjun Roy", email = "arjunroyihrpa@gmail.com" },
-  { name = "Swati Swati", email = "swati17293@gmail.com" }
+  { name = "Swati Swati", email = "swati17293@gmail.com" },
+  { name = "Emmanouil Panagiotou", email = "panagiotouemm@gmail.com" },
 ]
 license = { file = "LICENSE" }
 keywords = ["fairness", "boosting", "classification", "machine-learning"]

@@ -329,6 +329,9 @@ def plot_spider(
         ),
         xaxis_title="Objectives",
         yaxis_title="Values",
+        plot_bgcolor="#F5E8D8",
+        paper_bgcolor="#F5E8D8",  
+        font=dict(size=15,color="#2B2B2B"),
         annotations=[
             go.layout.Annotation(
                 showarrow=False,
@@ -337,8 +340,8 @@ def plot_spider(
                 y=1.35,  # Keep it above plot
                 xref="paper",
                 yref="paper",
-                font=dict(size=10, color="black"),
-                bgcolor="rgba(255, 255, 255, 0.85)",
+                font=dict(size=15, color="#2B2B2B"),
+                bgcolor= "#EBDDCB",  #"rgba(112,128,144,1)",
                 bordercolor="black",
                 borderwidth=2,
                 borderpad=10,

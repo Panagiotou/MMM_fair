@@ -20,7 +20,7 @@ from mmm_fair.deploy_utils import convert_to_onnx
 from mmm_fair.viz_trade_offs import plot2d, plot3d
 from mmm_fair.mmm_fair import MMM_Fair
 from mmm_fair.mmm_fair_gb import MMM_Fair_GradientBoostedClassifier
-from mmm_fair.data_process import data_uci  # Importing data processing module
+from mmm_fair.data_process import data_uci, data_local  # Importing data processing module
 from mmm_fair.mchat.langchain_utils import (get_langchain_agent, 
                                     summarize_html_report, 
                                     get_available_llm_providers)
@@ -61,13 +61,13 @@ THETA_DIV = """
 
 # Define chat arguments
 CHAT_ARGS = [
-    "classifier",
     "dataset",
+    "target",
     "prots",
     "nprotgs",
-    "target",
     "pos_Class",
     "data_visualization",
+    "classifier",
     "constraint",
     "n_learners",
     # "save_as",
@@ -100,6 +100,7 @@ DATASET_RECOMMENDATIONS = {
     "bank": ["age", "marital", "education"],
     "credit": ["sex", "age", "married"],
     "kdd": ["minority", "gender"],
+    "upload_data" : [],
 }
 
 TARGET_SUGGESTIONS = {
@@ -115,6 +116,7 @@ TARGET_SUGGESTIONS = {
     "kdd": [
         {"value": "income", "text": "income"},
     ],
+    "upload_data" : [],
 }
 
 POS_CLASS_SUGGESTIONS = {
@@ -139,6 +141,7 @@ POS_CLASS_SUGGESTIONS = {
             {"value": "0", "text": "0 (low income)"},
         ],
     },
+    "upload_data" : {},
 }
 
 # Add this dictionary to your app.py file right after DATASET_RECOMMENDATIONS
@@ -189,30 +192,59 @@ NONPROTECTED_SUGGESTIONS = {
         "minority": [{"value": "No", "text": "No"}, {"value": "Yes", "text": "Yes"}],
         "gender": [{"value": "M", "text": "Male"}, {"value": "F", "text": "Female"}],
     },
+    #"upload_data" : {},
 }
 
 # Dictionary to store available features for each dataset
 DATASET_FEATURES = {}
 
+# DEFAULT_BOT_MESSAGES = [
+#     {
+#         "sender": "bot",
+#         "text": "Hello! Welcome to MMM-Fair Chat.\n\n"
+#         "I can help you train either MMM_Fair (AdaBoost style) or MMM_Fair_GBT (Gradient Boosting style).\n"
+#         "Please select an option below:",
+#         "options": [
+#             {"value": "MMM_Fair", "text": "MMM_Fair (AdaBoost)"},
+#             {"value": "MMM_Fair_GBT", "text": "MMM_Fair_GBT (Gradient Boosting)"},
+#             {"value": "default", "text": "Run with default parameters"},
+#         ],
+#     }
+# ]
 DEFAULT_BOT_MESSAGES = [
     {
         "sender": "bot",
-        "text": "Hello! Welcome to MMM-Fair Chat.\n\n"
-        "I can help you train either MMM_Fair (AdaBoost style) or MMM_Fair_GBT (Gradient Boosting style).\n"
-        "Please select an option below:",
+        "text": "👋 Hello! Welcome to MMM-Fair Chat.\n\n"
+                "Let's get started by selecting a dataset to work with.\n"
+                "You can choose from well-known public datasets or upload your own CSV file.",
         "options": [
-            {"value": "MMM_Fair", "text": "MMM_Fair (AdaBoost)"},
-            {"value": "MMM_Fair_GBT", "text": "MMM_Fair_GBT (Gradient Boosting)"},
-            {"value": "default", "text": "Run with default parameters"},
+            {"value": "Adult", "text": "🧑 Adult (UCI)"},
+            {"value": "Bank", "text": "🏦 Bank Marketing (UCI)"},
+            {"value": "Credit", "text": "💳 Credit Default (UCI)"},
+            {"value": "upload_data", "text": "📁 Upload your own Data (currently supported files: '.csv'"},
         ],
     }
 ]
-
 @app.route("/")
 def index():
     session["llm_enabled"] = False
     session["api_enabled"] = False
     return render_template("index.html")
+
+@app.route("/upload_data", methods=["POST"])
+def upload_csv():
+    try:
+        uploaded_file = request.files.get("file")
+        if not uploaded_file or not uploaded_file.filename.endswith(".csv"):
+            return jsonify({"success": False, "error": "Only CSV files are supported."})
+        
+        # Read and store dataframe in session
+        df = pd.read_csv(uploaded_file)
+        session["data"] = data_local(df) # Save to session
+        #session["dataset_full"] = df
+        return jsonify({"success": True, "columns": df.columns.tolist()})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 @app.route("/provide_api_key", methods=["POST"])
 def provide_api_key():
@@ -324,20 +356,34 @@ def handle_llm_provider_selection(user_msg, chat_history):
 def ask_chat():
     chat_history = session.get("chat_history", [])
     user_args = session.get("user_args", {})
-    user_msg = request.json.get("message", "").strip()
-    button_value = request.json.get("button_value", "")
-    selected_features = request.json.get(
-        "selected_features", []
-    )  # Get selected features if provided
-
-    # Add this to handle non-protected group selection
-    nprotgs_value = request.json.get("nprotgs_value", "")
+    user_args["df"] = None
+    if "file" in request.files:
+        user_msg = request.form.get("message", "").strip()
+        selected_features = request.form.get(
+            "selected_features", []
+        )
+        nprotgs_value = request.form.get("nprotgs_value", "")
+        button_value = request.form.get("button_value", "")
+        if button_value:
+            user_msg = button_value
+    else:
+        
+        user_msg = request.json.get("message", "").strip()
+        button_value = request.json.get("button_value", "")
+        selected_features = request.json.get(
+            "selected_features", []
+        )  # Get selected features if provided
+    
+        # Add this to handle non-protected group selection
+        nprotgs_value = request.json.get("nprotgs_value", "")
 
     print(f"DEBUG: Received button_value: {button_value}")
+    print("DEBUG: dataset =", user_args.get("dataset"))
 
     # If a button was clicked, use its value instead of the message
     if button_value:
         user_msg = button_value
+        
 
     if session.get("last_action") == "plotted" and user_msg.lower() in ["yes", "explain", "please explain", "what do these mean?", "openai", "chatgpt", "groqai", "groq", "togetherai", "together"]:
         if not session.get("llm_enabled"):
@@ -505,9 +551,28 @@ def ask_chat():
                         ],
                     }
                 )
+            elif dataset_name == "upload_data":
+                    options = [
+                        {"value": str(val), "text": str(val)}
+                        for val in sorted(set(session["data"].data[next_prot]))
+                    ]
+                    chat_history.append(
+                        {
+                            "sender": "bot",
+                            "text": f"Select non-protected value for {next_prot}:",
+                            "options": [
+                                {
+                                    "value": f"nprotg_{next_prot}_{val['value']}",
+                                    "text": val["text"],
+                                }
+                                for val in options
+                            ],
+                        }
+                    )
 
             session["chat_history"] = chat_history
             return jsonify({"chat_history": chat_history[-2:]})
+            
 
     # Handle feature selection submission
     if user_msg == "submit_features" and selected_features:
@@ -628,10 +693,12 @@ def ask_chat():
         # For button clicks, show the button text instead of value
         display_text = user_msg
         if chat_history:  # Check if chat_history is not empty
-            for option in chat_history[-1].get("options", []):
-                if option["value"] == user_msg:
-                    display_text = option["text"]
-                    break
+            options = chat_history[-1].get("options")
+            if isinstance(options, list):
+                for option in options: #chat_history[-1].get("options", []):
+                    if option["value"] == user_msg:
+                        display_text = option["text"]
+                        break
 
         chat_history.append({"sender": "user", "text": display_text})
 
@@ -690,11 +757,20 @@ def ask_chat():
 
         # **NEW FEATURE**: Load dataset after fetching "dataset" argument
         if current_arg == "dataset":
+            #print("we entered here")
             if valid:
                 # Load dataset and store for later use
                 try:
-                    session["data"] = data_uci(clean_val)  # Load dataset
-                    user_args[current_arg] = clean_val
+                    if "file" in request.files:
+                        uploaded_file = request.files.get("file")
+                        #print(f" - Filename: {uploaded_file.filename}")
+                        df = pd.read_csv(uploaded_file)
+                        session["data"] = data_local(df)
+                        user_args["dataset"] = "upload_data"
+                    else:    
+                        session["data"] = data_uci(clean_val)  # Load dataset
+                        user_args[current_arg] = clean_val
+                    session["user_args"] = user_args#clean_val
                     chat_history.append(
                         {"sender": "bot", "text": f"Set {current_arg} = {clean_val}."}
                     )
@@ -712,6 +788,7 @@ def ask_chat():
                                 {"value": "bank", "text": "Bank Dataset"},
                                 {"value": "credit", "text": "Credit Dataset"},
                                 {"value": "kdd", "text": "KDD Dataset"},
+                                {"value": "upload_data", "text": "📁 Upload your own Data (currently supported files: '.csv'"},
                             ],
                         }
                     )
@@ -728,6 +805,7 @@ def ask_chat():
                             {"value": "bank", "text": "Bank Dataset"},
                             {"value": "credit", "text": "Credit Dataset"},
                             {"value": "kdd", "text": "KDD Dataset"},
+                            {"value": "upload_data", "text": "📁 Upload your own Data (currently supported files: '.csv'"},
                         ],
                     }
                 )
@@ -939,18 +1017,21 @@ def get_missing_args(user_args):
     Return the list of arguments we still need, considering
     if user chose MMM_Fair_GBT => skip base_learner
     """
-    chosen_classifier = user_args.get("classifier", "").lower()
-
-    if not chosen_classifier:
-        return ["classifier"]  # No classifier => we can't skip anything yet
+    # chosen_data = user_args.get("data", "").lower()
+    # if not chosen_data:
+    #     return ["dataset"]
 
     needed_args = []
     for arg in CHAT_ARGS:
-        if arg == "base_learner" and chosen_classifier in [
+        if arg == "base_learner":
+            chosen_classifier = user_args.get("classifier", "").lower()
+            if not chosen_classifier:
+                return ["classifier"]
+            elif chosen_classifier in [
             "mmm_fair_gbt",
             "mmm-fair-gbt",
-        ]:
-            continue  # Skip base_learner for GBT models
+            ]:
+                continue  # Skip base_learner for GBT models
 
         if arg == "data_visualization":
             has_target = "target" in user_args and user_args["target"]
@@ -972,11 +1053,15 @@ def validate_arg(arg_name, user_input, user_args):
     Returns (valid, clean_value, error_message).
     """
     print(arg_name, user_input, user_args)
-    if arg_name == "classifier":
-        val = user_input.lower()
-        if val not in ["mmm_fair", "mmm_fair_gbt", "mmm-fair", "mmm-fair-gbt"]:
-            return False, None, "Classifier must be 'MMM_Fair' or 'MMM_Fair_GBT'."
-        return True, "MMM_Fair_GBT" if "gbt" in val else "MMM_Fair", ""
+    if arg_name == "dataset":
+        if user_input.lower().endswith(".csv"):
+            return True, user_input, ""
+        elif user_input.lower() in ["adult", "bank", "kdd", "credit","upload_data"]:
+            return True, user_input.lower(), "Loading Data...please wait!!!"
+        
+        else:
+            return False, user_input, ""  # Fallback case
+    
 
     elif arg_name == "n_learners":
         if not user_input.isdigit():
@@ -989,13 +1074,11 @@ def validate_arg(arg_name, user_input, user_args):
             return False, None, "Constraint must be DP, EP, EO, TPR, or FPR."
         return True, c, ""
 
-    elif arg_name == "dataset":
-        if user_input.lower().endswith(".csv"):
-            return True, user_input, ""
-        elif user_input.lower() in ["adult", "bank", "kdd", "credit"]:
-            return True, user_input.lower(), "Loading Data...please wait!!!"
-        else:
-            return False, user_input, ""  # Fallback case
+    elif arg_name == "classifier":
+        val = user_input.lower()
+        if val not in ["mmm_fair", "mmm_fair_gbt", "mmm-fair", "mmm-fair-gbt"]:
+            return False, None, "Classifier must be 'MMM_Fair' or 'MMM_Fair_GBT'."
+        return True, "MMM_Fair_GBT" if "gbt" in val else "MMM_Fair", ""
 
     elif arg_name == "target":
         # Extract the name of the target column
@@ -1054,7 +1137,7 @@ def validate_arg(arg_name, user_input, user_args):
         # If we're validating from button selection, we already handled the count check
         if "nprotgs_temp" in session and len(session["nprotgs_temp"]) > 0:
             return True, user_input.split(), ""
-
+    
         # Otherwise, default validation
         existing_prots = user_args.get("prots", [])
         splitted = user_input.split()
@@ -1064,6 +1147,23 @@ def validate_arg(arg_name, user_input, user_args):
                 None,
                 f"Got {len(splitted)} non-protected vals for {len(existing_prots)} protected columns. Please match count.",
             )
+    
+        # ✅ Add this return for the normal case
+        return True, splitted, ""
+    #elif arg_name == "nprotgs":
+        # # If we're validating from button selection, we already handled the count check
+        # if "nprotgs_temp" in session and len(session["nprotgs_temp"]) > 0:
+        #     return True, user_input.split(), ""
+
+        # # Otherwise, default validation
+        # existing_prots = user_args.get("prots", [])
+        # splitted = user_input.split()
+        # if len(splitted) != len(existing_prots):
+        #     return (
+        #         False,
+        #         None,
+        #         f"Got {len(splitted)} non-protected vals for {len(existing_prots)} protected columns. Please match count.",
+        #     )
 
     elif arg_name == "deploy":
         val = user_input.lower()
@@ -1159,6 +1259,19 @@ def get_prompt_for_arg(arg_name, user_args):
             ],
         )
 
+    if arg_name == "dataset":
+        return  (
+            "Please select a dataset:",
+            [
+                {"value": "adult", "text": "Adult Dataset"},
+                {"value": "bank", "text": "Bank Dataset"},
+                {"value": "credit", "text": "Credit Dataset"},
+                {"value": "kdd", "text": "KDD Dataset"},
+                {"value": "upload_data", "text": "📁 Upload your own Data (currently supported types: '.csv'"},
+            {"value": "default", "text": "Run with default setup on Adult data"}
+            ],
+        )
+        
     if arg_name == "base_learner":
         return (
             "Select a base learner:",
@@ -1173,21 +1286,27 @@ def get_prompt_for_arg(arg_name, user_args):
     if arg_name == "prots":
         # Get dataset name
         dataset_name = user_args.get("dataset", "").lower()
+        #print(f'Debugging inside get_prompt {dataset_name}')
         available_features = []
         recommended_features = []
 
         if "data" in session:
+            #print("we came here for data")
             # Get actual columns from the dataset
             available_features = session["data"].data.columns.tolist()
+            #print(f'Debugging inside get_prompt features {available_features}')
             DATASET_FEATURES[dataset_name] = available_features
         elif dataset_name in DATASET_FEATURES:
             # Use cached features if available
             available_features = DATASET_FEATURES[dataset_name]
 
         # Get recommended features for this dataset
+        #recommended_features = []
         if dataset_name in DATASET_RECOMMENDATIONS:
             recommended_features = DATASET_RECOMMENDATIONS[dataset_name]
 
+        #if dataset_name == "upload_data":
+        #    recomended_features= available_features
         # Build a special message with recommendations
         message = "Please select protected attributes:"
         if recommended_features:
@@ -1196,6 +1315,8 @@ def get_prompt_for_arg(arg_name, user_args):
             )
 
         # Return a special format with available features
+        
+        print(f'Debugging for recomended values {recommended_features}')
         return (
             message,
             {
@@ -1208,9 +1329,9 @@ def get_prompt_for_arg(arg_name, user_args):
     elif arg_name == "nprotgs":
         dataset_name = user_args.get("dataset", "").lower()
         protected_attrs = user_args.get("prots", [])
-
+    
+        # Case 1: Use default suggestions for known datasets
         if dataset_name in NONPROTECTED_SUGGESTIONS and protected_attrs:
-            # If we've started selecting, show for the next attribute
             if "nprotgs_temp" in session and session["nprotgs_temp"]:
                 next_idx = len(session["nprotgs_temp"])
                 if next_idx < len(protected_attrs):
@@ -1227,7 +1348,6 @@ def get_prompt_for_arg(arg_name, user_args):
                                 for option in options
                             ],
                         )
-            # If just starting, show for the first attribute
             elif protected_attrs:
                 first_prot = protected_attrs[0]
                 if first_prot in NONPROTECTED_SUGGESTIONS[dataset_name]:
@@ -1242,43 +1362,76 @@ def get_prompt_for_arg(arg_name, user_args):
                             for option in options
                         ],
                     )
-
+    
+        # Case 2: Dynamically build dropdown from uploaded CSV
+        if dataset_name == "upload_data" and "data" in session:
+            df = session["data"].data
+            if protected_attrs:
+                temp_vals = session.get("nprotgs_temp", [])
+                next_idx = len(temp_vals)
+                if next_idx < len(protected_attrs):
+                    next_prot = protected_attrs[next_idx]
+                    try:
+                        values = sorted(set(df[next_prot].dropna().unique()))
+                        options = [
+                            {
+                                "value": f"nprotg_{next_prot}_{val}",
+                                "text": str(val),
+                            }
+                            for val in values
+                        ]
+                        return (
+                            f"Select non-protected value for '{next_prot}':",
+                            options
+                        )
+                    except Exception as e:
+                        return (
+                            f"⚠️ Could not retrieve values for '{next_prot}': {e}",
+                            None
+                        )
+            else:
+                session["nprotgs_temp"] = []
+    
         return (
             "Enter corresponding non-protected spec, e.g. 'White Male' matching the above columns:",
             None,
         )
     elif arg_name == "target":
+        target=session['data'].labels['label'].name
         dataset_name = user_args.get("dataset", "").lower()
         if dataset_name in TARGET_SUGGESTIONS:
+            if dataset_name == "upload_data":
+                TARGET_SUGGESTIONS[dataset_name]= [{"value": target, "text": target},]
             return (
-                "Enter the label (target) column in your dataset:",
+                "Select the label (target) column in your dataset:",
                 TARGET_SUGGESTIONS[dataset_name],
             )
         else:
+            target=session['data'].labels['label'].name
+            print(f'Debugging target name{target}')
             return (
-                "Enter the label (target) column in your dataset (e.g. 'income'):",
-                None,
+                "Enter the label (target) column in your dataset:",
+                {"value": target, "text": target},
             )
 
     elif arg_name == "pos_Class":
         dataset_name = user_args.get("dataset", "").lower()
-        target_name = user_args.get("target", "").lower()
-
-        # Check if we have suggestions for this dataset and target
-        if (
-            dataset_name in POS_CLASS_SUGGESTIONS
-            and target_name in POS_CLASS_SUGGESTIONS[dataset_name]
-        ):
-            # Add a skip option and then the suggestions
-            options = [{"value": "", "text": "Skip (use default)"}]
-            options.extend(POS_CLASS_SUGGESTIONS[dataset_name][target_name])
-
-            return ("Select the positive class label:", options)
-        else:
-            return (
-                "Enter the positive class label if known (else press Enter to skip):",
-                None,
-            )
+        target_column = user_args.get("target", "")
+    
+        try:
+            if "data" in session and target_column:
+                labels = session["data"].labels["label"]
+                unique_classes = list(set(labels))
+                options = [{"value": str(c), "text": f"Use '{c}' as positive"} for c in unique_classes]
+    
+                # Add a "Skip" option too
+                options.insert(0, {"value": "", "text": "Skip (use default)"})
+                return ("Please select the positive class label:", options)
+    
+        except Exception as e:
+            print(f"DEBUG: Failed to fetch pos_Class options — {e}")
+    
+        return ("Enter the positive class label if known (else press Enter to skip):", None)
 
     return prompts.get(arg_name, (f"Enter {arg_name}:", None))
 
@@ -1507,6 +1660,8 @@ def reset_chat():
 
 
 def run_mmm_fair_app(user_args):
+    data = session.get('data')
+    user_args["df"]=data
     args = argparse.Namespace(**user_args)
     mmm_classifier, X_test, y_test, saIndex_test, sensitives = train(args)
     session["mmm_classifier"] = mmm_classifier
