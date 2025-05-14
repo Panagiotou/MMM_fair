@@ -56,7 +56,7 @@ class ONNX_MMM():
                 raise ValueError(f'Inputs or params mismatch for mmm ensemble: {e}')
         else:
             try:
-                model_byte=self.models[0]
+                model_bytes=self.models[0]
                 session = rt.InferenceSession(model_bytes)
                 input_name = session.get_inputs()[0].name
                 outputs = session.run(None, {input_name: X})
