@@ -96,6 +96,8 @@ def data_local(
             target= categorical[-1]
     if target in categorical:
         categorical.remove(target)
+    elif target in numeric:
+        numeric.remove(target)
     label = raw_data[target].copy()
     raw_data=raw_data.drop(columns=[target])
  
