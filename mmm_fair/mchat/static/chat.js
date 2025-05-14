@@ -738,10 +738,11 @@ document.addEventListener("DOMContentLoaded", function(){
             // {value: "MMM_Fair", text: "MMM_Fair (AdaBoost)"},
             // {value: "MMM_Fair_GBT", text: "MMM_Fair_GBT (Gradient Boosting)"},
             // {value: "default", text: "Run with default parameters"}
-            {value: "Adult", "text": "🧑 Adult (UCI)"},
-            {value: "Bank", "text": "🏦 Bank Marketing (UCI)"},
-            {value: "Credit", "text": "💳 Credit Default (UCI)"},
-            {value: "upload_data", "text": "📁 Upload your own Data (currently supported types: '.csv'"},
+            {value: "Adult", text: "🧑 Adult (UCI)"},
+            {value: "Bank", text: "🏦 Bank Marketing (UCI)"},
+            {value: "Credit", text: "💳 Credit Default (UCI)"},
+            {value: "kdd", text: "🧑 Census-Income KDD (UCI)"},
+            {value: "upload_data", text: "📁 Upload your own Data (currently supported types: '.csv'"},
             {value: "default", text: "Run with default setup on Adult data"}
         ];
         

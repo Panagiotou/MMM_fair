@@ -1,7 +1,7 @@
 import pandas as pd
 from ucimlrepo import fetch_ucirepo
 from .mammoth_csv import CSV
-
+from collections import OrderedDict
 
 
 def data_uci(

@@ -340,7 +340,7 @@ from sklearn.tree import DecisionTreeClassifier
 mmm = MMM_Fair(
 estimator=DecisionTreeClassifier(max_depth=5),
 constraints="EO",        # or "DP", "EP"
-n_estimators=1000,
+n_estimators=1000,      # or max_iter=1000
 saIndex=...,            # shape (n_samples, n_protected)
 saValue=...,            # dictionary {'prot_att_column_name': prot value}
 random_state=42,

@@ -61,7 +61,7 @@ def convert_to_onnx(custom_model, output_path, X, model_type="mmm_fair"):
 
     else:
         onnx_models = []
-        for i, estimator in enumerate(custom_model.estimator_):
+        for i, estimator in enumerate(custom_model.all_estimators):
             onnx_model = to_onnx(estimator, sample_input)
             onnx_models.append(onnx_model)
 

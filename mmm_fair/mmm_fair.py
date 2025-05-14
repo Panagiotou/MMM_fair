@@ -453,7 +453,8 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
     def __init__(
         self,
         estimator=None,
-        n_estimators=50,
+        n_estimators=None,
+        max_iter=None,
         learning_rate=1.0,
         algorithm="SAMME",
         random_state=None,
@@ -469,6 +470,10 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         gamma=0.5,
         tracking=False  ###This is a developer option for debugging
     ):  # ,protected_attr=['Race','Sex']):
+        if n_estimators is None and max_iter is not None:
+            n_estimators = max_iter
+        elif n_estimators is None:
+            n_estimators = 50 
         super(MMM_Fair, self).__init__(
             estimator=estimator,
             n_estimators=n_estimators,
@@ -501,7 +506,7 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         if constraint not in valid_constraints:
             raise ValueError(f"Invalid fairness constraint '{constraints}'. Must be one of {valid_constraints}.")
         
-        self.constraints=constraint
+        self.constraint=constraint
         self.debug = debug
         self.imbalance_weights="balanced"
 
@@ -700,11 +705,11 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
             eos.append(max(diff_tpr, diff_tnr))
     
             # 5) Add fairness cost(s)
-            if self.constraints == "DP":
+            if self.constraint == "DP":
                 fair_cost.append(abs(diff_ppr))
-            elif self.constraints=="EP" or self.constraints=="TPR":
+            elif self.constraint=="EP" or self.constraint=="TPR":
                 fair_cost.append(abs(diff_tpr))
-            elif self.constraints=="FPR":
+            elif self.constraint=="FPR":
                 fair_cost.append(abs(diff_tnr))
             else:  # "EO"
                 fair_cost.append(max(abs(diff_tpr), abs(diff_tnr)))
@@ -712,7 +717,7 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
             eq_odds.append(abs(diff_tpr) + abs(diff_tnr))
     
             # 6) Update cost arrays for next iteration (used in _boost_discrete)
-            if self.constraints in ["EP", "EO", "TPR", "FPR"]:
+            if self.constraint in ["EP", "EO", "TPR", "FPR"]:
                 self.cost_protected_negative[i] = 1
                 self.cost_non_protected_negative[i] = 1
                 if diff_tpr >= 0:
@@ -724,7 +729,7 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
                 elif diff_tnr < 0:
                     self.cost_non_protected_negative[i] = 1 + abs(diff_tnr)
     
-            elif self.constraints == "DP":
+            elif self.constraint == "DP":
                 if diff_ppr >= 0:
                     self.cost_protected[i] = 1 + diff_ppr
                     self.cost_non_protected[i] = 1
@@ -740,6 +745,7 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         self,
         criteria: Literal["all", "fairness","fairdefs"] = "all",
         preference=[0.33, 0.34, 0.33],
+        theta=None ##for bruteforce theta update
     ):
         def is_pareto(costs, maximise=False):
             """
@@ -761,42 +767,46 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
                         )  # Remove dominated points
             return is_efficient
 
-        #self.preference = preference
-        best_theta = 0
-        if criteria.lower() == "fairness":
-            objective = deepcopy(self.feat_obs)
-            if len(preference)!= self.feat_obs.shape[-1]:
-                preference = [1/self.feat_obs.shape[-1] for i in range(self.feat_obs.shape[-1])]
-        elif criteria.lower() == "fairdefs":
-            objective = deepcopy(self.fairobs)
+        if theta is None:
+            #self.preference = preference
+            best_theta = 0
+            if criteria.lower() == "fairness":
+                objective = deepcopy(self.feat_obs)
+                if len(preference)!= self.feat_obs.shape[-1]:
+                    preference = [1/self.feat_obs.shape[-1] for i in range(self.feat_obs.shape[-1])]
+            elif criteria.lower() == "fairdefs":
+                objective = deepcopy(self.fairobs)
+            else:
+                objective = deepcopy(self.ob)
+            # objective=np.round(objective,2)
+            if self.pareto == False:
+                PF = {i: objective[i] for i in range(len(objective)) if np.any(objective[i]==0)==False}
+                F = np.array([objective[o] for o in range(len(objective))])
+                self.PF = PF
+            else:
+                pf = is_pareto(objective)
+                PF = {i: objective[i] for i in range(len(pf)) if pf[i] == True and np.any(objective[i]==0)==False}
+                F = np.array(list(PF.values()))
+                self.PF = PF
+    
+            if self.preference is None or len(self.preference)!= objective.shape[-1]:
+                weights = preference  ##Preference Weights
+            else:
+                weights = self.preference
+    
+            best_theta, pseudo_weights = PseudoWeights(weights).do(
+                F, return_pseudo_weights=True
+            )
+    
+            if self.preference is None:
+                sum_W = [sum((1 - pseudo_weights[w]) * F[w]) for w in range(len(PF))]
+                best_theta = sum_W.index(min(sum_W))
+    
+            self.theta = list(PF.keys())[best_theta] + 1
+            self.pseudo = pseudo_weights
         else:
-            objective = deepcopy(self.ob)
-        # objective=np.round(objective,2)
-        if self.pareto == False:
-            PF = {i: objective[i] for i in range(len(objective)) if np.any(objective[i]==0)==False}
-            F = np.array([objective[o] for o in range(len(objective))])
-            self.PF = PF
-        else:
-            pf = is_pareto(objective)
-            PF = {i: objective[i] for i in range(len(pf)) if pf[i] == True and np.any(objective[i]==0)==False}
-            F = np.array(list(PF.values()))
-            self.PF = PF
-
-        if self.preference is None or len(self.preference)!= objective.shape[-1]:
-            weights = preference  ##Preference Weights
-        else:
-            weights = self.preference
-
-        best_theta, pseudo_weights = PseudoWeights(weights).do(
-            F, return_pseudo_weights=True
-        )
-
-        if self.preference is None:
-            sum_W = [sum((1 - pseudo_weights[w]) * F[w]) for w in range(len(PF))]
-            best_theta = sum_W.index(min(sum_W))
-
-        self.theta = list(PF.keys())[best_theta] + 1
-        self.pseudo = pseudo_weights
+            self.theta =theta
+            #self._predictors=self.all_estimators[:self.theta]
 
     
     def see_pareto(self):
@@ -874,7 +884,7 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         
         PF=np.array([self.ob[i] for i in range(len(self.ob))])
         thetas=np.arange(len(self.ob))
-        title=f"3D Scatter Plot. Showing various trade-off points between Accuracy, Balanced Accuracy, and Maximum violation of {self.constraints} fairness among protected attributes."
+        title=f"3D Scatter Plot. Showing various trade-off points between Accuracy, Balanced Accuracy, and Maximum violation of {self.constraint} fairness among protected attributes."
         plot3d(x=PF[:,0],y=PF[:,1],z=PF[:,2], theta=thetas, criteria="Multi",
                axis_names=['Acc.','Balanc. Acc', 'MMM-fair'],title=title)
         PF=np.array([self.fairobs[i] for i in range(len(self.fairobs))])
@@ -885,7 +895,7 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
             #self.theta=None
             #self.update_theta(criteria='fairness')
             PF=np.array([self.feat_obs[i] for i in range(len(self.feat_obs))])
-            title=f"3D Scatter Plot. Showing various trade-off points between violation of {self.constraints} fairness among the protected attributes {self.sensitives}."
+            title=f"3D Scatter Plot. Showing various trade-off points between violation of {self.constraint} fairness among the protected attributes {self.sensitives}."
             if PF.shape[-1]>2:
                 plot3d(x=PF[:,0],y=PF[:,1],z=PF[:,2], theta=thetas, 
                        criteria='Multi-attribute',axis_names=self.sensitives,title=title)
@@ -1063,15 +1073,15 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         incorrect = y_predict != y     
         
         # Error fraction
-        if self.constraints=="EO":
+        if self.constraint=="EO":
             estimator_error = np.mean(np.average(incorrect, weights=sample_weight, axis=0))
             
-        elif self.constraints=="EP":
+        elif self.constraint=="EP":
             p=self.cost_protected.index(max(self.cost_protected))
             prot_pos_incorrect= (y_predict != y) & (y==self.pos_class) & (self.saIndex[:,p]==self.saValue[self.sensitives[p]])
             estimator_error = (1-self.gamma)*np.mean(np.average(incorrect, weights=sample_weight, axis=0)) + self.gamma*np.mean(
                 np.average(prot_pos_incorrect, weights=sample_weight, axis=0))
-        elif self.constraints=="DP":
+        elif self.constraint=="DP":
             p=self.cost_protected.index(max(self.cost_protected))
             prot_pos=(y_predict != self.pos_class) & (self.saIndex[:,p]==self.saValue[self.sensitives[p]]) 
             not_pos= (y_predict != self.pos_class) & (self.saIndex[:,p]!=self.saValue[self.sensitives[p]]) 
@@ -1159,7 +1169,7 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
         if not iboost == self.n_estimators - 1:
             for idx, row in enumerate(sample_weight):
                 
-                if self.constraints in ["EO","EP", "TPR", "FPR"]:
+                if self.constraint in ["EO","EP", "TPR", "FPR"]:
                     # 1. FN: actual = positive, predicted = negative
                     if y[idx] == self.pos_class and y_predict[idx] != self.pos_class:
                         cost_vector = self._compute_cost_vector(
@@ -1178,7 +1188,7 @@ class MMM_Fair(BaseWeightBoosting, ClassifierMixin):
                         )
                         sample_weight[idx] *=self._update_sample_weight(alpha, proba[idx], cost_vector)
                 # 3. Negative prediction: predicted = negative and only if constrained on DP    
-                elif  y_predict[idx] != self.pos_class and self.constraints=="DP":
+                elif  y_predict[idx] != self.pos_class and self.constraint=="DP":
                     if y[idx]==self.pos_class:
                         cost_vector = self._compute_cost_vector(
                             idx,

@@ -104,8 +104,8 @@ default_args = {
 DATASET_RECOMMENDATIONS = {
     "adult": ["race", "sex", "age"],
     "bank": ["age", "marital", "education"],
-    "credit": ["sex", "age", "married"],
-    "kdd": ["minority", "gender"],
+    "credit": ["X2", "X4", "X5"],
+    "kdd": ["AAGE", "ASEX", "ARACE"],
     "upload_data" : [],
 }
 
@@ -117,7 +117,7 @@ TARGET_SUGGESTIONS = {
         {"value": "y", "text": "y (subscription)"},
     ],
     "credit": [
-        {"value": "default", "text": "default"},
+        {"value": "Y", "text": "default"},
     ],
     "kdd": [
         {"value": "income", "text": "income"},
@@ -143,8 +143,8 @@ POS_CLASS_SUGGESTIONS = {
     },
     "kdd": {
         "income": [
-            {"value": "1", "text": "1 (high income)"},
-            {"value": "0", "text": "0 (low income)"},
+            {"value": ' 50000+.', "text": ">50K$ (high income)"},
+            {"value": '-50000', "text": "<50K$ (low income)"},
         ],
     },
     "upload_data" : {},
@@ -184,19 +184,32 @@ NONPROTECTED_SUGGESTIONS = {
         ],
     },
     "credit": {
-        "sex": [
-            {"value": "Male", "text": "Male"},
-            {"value": "Female", "text": "Female"},
+        "X2": [
+            {"value": "1", "text": "1=Male"},
+            {"value": "2", "text": "2=Female"},
         ],
-        "age": [
-            {"value": "18_30", "text": "18-30"},
-            {"value": "30_45", "text": "30-45"},
+        "X5": [
+            {"value": "18_30", "text": "age: 18-30"},
+            {"value": "30_45", "text": "age: 30-45"},
         ],
-        "married": [{"value": "Yes", "text": "Yes"}, {"value": "No", "text": "No"}],
+        "X4": [{"value": "1", "text": "1=married"}, {"value": "2", "text": "2=single"}, {"value": "3", "text": "3=others"}],
     },
     "kdd": {
-        "minority": [{"value": "No", "text": "No"}, {"value": "Yes", "text": "Yes"}],
-        "gender": [{"value": "M", "text": "Male"}, {"value": "F", "text": "Female"}],
+        "ARACE": [
+                    {"value": " White", "text": " White"},
+                    {"value": " Asian or Pacific Islander", "text": " Asian or Pacific Islander"},
+                    {"value": " Amer Indian Aleut or Eskimo", "text": " Amer Indian Aleut or Eskimo"},
+                    {"value": " Black", "text": " Black"},
+                        {"value": " Other", "text": " Other"}
+                ],
+        "ASEX": [{"value": ' Male', "text": "Male"}, {"value": ' Female', "text": "Female"}],
+        "AAGE": [
+            {"value": "18_30", "text": "18-30"},
+            {"value": "30_45", "text": "30-45"},
+            {"value": "45_60", "text": "45-60"},
+            {"value": "60_80", "text": "Above 60"},
+        ],
+        
     },
     #"upload_data" : {},
 }
@@ -227,6 +240,7 @@ DEFAULT_BOT_MESSAGES = [
             {"value": "Adult", "text": "🧑 Adult (UCI)"},
             {"value": "Bank", "text": "🏦 Bank Marketing (UCI)"},
             {"value": "Credit", "text": "💳 Credit Default (UCI)"},
+            {"value": "kdd", "text": "🧑 Census-Income KDD (UCI)"},
             {"value": "upload_data", "text": "📁 Upload your own Data (currently supported files: '.csv'"},
         ],
     }
@@ -394,7 +408,7 @@ def ask_chat():
         user_msg = button_value
         
 
-    if session.get("last_action") == "plotted" and user_msg.lower() in ["yes", "explain", "please explain", "what do these mean?", "openai", "chatgpt", "groqai", "groq", "togetherai", "together"]:
+    if session.get("mmm_classifier") is not None and session.get("last_action") == "plotted" and user_msg.lower() in ["yes", "explain", "please explain", "what do these mean?", "openai", "chatgpt", "groqai", "groq", "togetherai", "together"]:
         if not session.get("llm_enabled"):
             session["llm_provider"] = "in-progress"
             chat_history = prompt_for_llm_provider(chat_history)
