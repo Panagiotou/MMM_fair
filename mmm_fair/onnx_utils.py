@@ -51,8 +51,9 @@ class ONNX_MMM():
                 pred[:, 0] *= -1
                 preds = classes.take(pred.sum(axis=1) > 0, axis=0)
                 return np.squeeze(preds, axis=1)   
-            except:
-                raise ValueError('Inputs or params mismatch')
+            except Exception as e:
+                print("ONNX predict failed:", e)
+                raise ValueError(f'Inputs or params mismatch for mmm ensemble: {e}')
         else:
             try:
                 model_byte=self.models[0]
@@ -60,5 +61,6 @@ class ONNX_MMM():
                 input_name = session.get_inputs()[0].name
                 outputs = session.run(None, {input_name: X})
                 return outputs[0]
-            except:
-                raise ValueError('Inputs or params mismatch')
+            except Exception as e:
+                print("ONNX predict failed:", e)
+                raise ValueError(f'Inputs or params mismatch: {e}')
