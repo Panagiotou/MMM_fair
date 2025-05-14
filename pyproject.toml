@@ -42,6 +42,11 @@ dependencies = [
   "tqdm",
   "plotly",
   "onnxruntime",
+  "fairlearn",
+  "rich",
+  "socket",
+  "threading",
+  "webbrowser",
   "Flask",
   "Flask-Session"
 ]

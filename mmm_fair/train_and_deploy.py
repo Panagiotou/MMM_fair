@@ -18,6 +18,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.tree import ExtraTreeClassifier
 from sklearn.model_selection import train_test_split
 
+from .fairlearn_report import generate_reports_from_fairlearn
+
 # from mmm_fair.viz_trade_offs import plot3d
 
 default_data_setting = {
@@ -532,16 +534,25 @@ def report_card(
 ):
     ypred = mmm_classifier.predict(xtest)
     if card:
-        report = generate_reports(
-            report_type=args.report_type,
-            sensitives=sensitives,
-            mmm_classifier=mmm_classifier,
-            saIndex_test=SI,
-            y_pred=ypred,
-            y_test=ytest,
-            html=html,
-        )
-
+        if args.report_engine == 'fairbench':
+            report = generate_reports(
+                report_type=args.report_type,
+                sensitives=sensitives,
+                mmm_classifier=mmm_classifier,
+                saIndex_test=SI,
+                y_pred=ypred,
+                y_test=ytest,
+                html=html,
+            )
+        else:
+            report = generate_reports_from_fairlearn(
+                report_type=args.report_type,
+                sensitives=sensitives,
+                mmm_classifier=mmm_classifier,
+                saIndex_test=SI,
+                y_pred=ypred,
+                y_test=ytest,
+            )
     if args.moo_vis:
         mmm_classifier.see_pareto()
         while True:
@@ -563,14 +574,25 @@ def report_card(
                     mmm_classifier.update_theta(theta=theta)
                     print(f"Model updated with Theta index {theta}.")
                     ypred = mmm_classifier.predict(xtest)
-                    generate_reports(
-                        report_type=args.report_type,
-                        sensitives=sensitives,
-                        mmm_classifier=mmm_classifier,
-                        saIndex_test=SI,
-                        y_pred=ypred,
-                        y_test=ytest,
-                    )
+                    if args.report_engine == 'fairbench':
+                        report = generate_reports(
+                            report_type=args.report_type,
+                            sensitives=sensitives,
+                            mmm_classifier=mmm_classifier,
+                            saIndex_test=SI,
+                            y_pred=ypred,
+                            y_test=ytest,
+                            html=html,
+                        )
+                    else:
+                        report = generate_reports_from_fairlearn(
+                            report_type=args.report_type,
+                            sensitives=sensitives,
+                            mmm_classifier=mmm_classifier,
+                            saIndex_test=SI,
+                            y_pred=ypred,
+                            y_test=ytest,
+                        )
                     break  # Exit loop after successful update
                 else:
                     print(
@@ -691,6 +713,12 @@ def main():
         type=str,
         default="table",
         help="Override the default report output, e.g. 'table', 'console', 'html', etc.",
+    )
+    parser.add_argument(
+        "--report_engine",
+        type=str,
+        default="fairbench",
+        help="Override the default report engine, e.g. 'fairbench', 'fairlearn', etc.",
     )
     parser.add_argument(
         "--pareto",
