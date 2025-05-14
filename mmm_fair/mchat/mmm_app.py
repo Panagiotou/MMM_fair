@@ -21,9 +21,15 @@ from mmm_fair.viz_trade_offs import plot2d, plot3d
 from mmm_fair.mmm_fair import MMM_Fair
 from mmm_fair.mmm_fair_gb import MMM_Fair_GradientBoostedClassifier
 from mmm_fair.data_process import data_uci, data_local  # Importing data processing module
-from mmm_fair.mchat.langchain_utils import (get_langchain_agent, 
-                                    summarize_html_report, 
-                                    get_available_llm_providers)
+try:
+    from mmm_fair.mchat.langchain_utils import (get_langchain_agent, 
+                                        summarize_html_report, 
+                                        get_available_llm_providers)
+    LLM_AVAILABLE = True
+except ImportError:
+    print("🔕 LLM features not installed. To enable, use: pip install 'mmm-fair[llm-gpt]' or similar.")
+    LLM_AVAILABLE = False
+    
 from mmm_fair.mchat.openai_utils import get_openAI_llm
 from mmm_fair.mchat.groq_utils import get_groq_llm
 
@@ -305,7 +311,10 @@ def start_chat():
 
 
 def prompt_for_llm_provider(chat_history):
-    available = get_available_llm_providers()
+    if LLM_AVAILABLE:
+        available = get_available_llm_providers()
+    else:
+        available = LLM_AVAILABLE
     session["valid_providers"] = available
     if not available:
         chat_history.append({
@@ -377,8 +386,8 @@ def ask_chat():
         # Add this to handle non-protected group selection
         nprotgs_value = request.json.get("nprotgs_value", "")
 
-    print(f"DEBUG: Received button_value: {button_value}")
-    print("DEBUG: dataset =", user_args.get("dataset"))
+    #print(f"DEBUG: Received button_value: {button_value}")
+    #print("DEBUG: dataset =", user_args.get("dataset"))
 
     # If a button was clicked, use its value instead of the message
     if button_value:
@@ -1086,9 +1095,9 @@ def validate_arg(arg_name, user_input, user_args):
             session["data"].labels["label"].name
         )  # Get the column name
 
-        print(
-            f"DEBUG: Available target name: {available_target_name}"
-        )  # Debugging output
+        #print(
+        #    f"DEBUG: Available target name: {available_target_name}"
+        #)  # Debugging output
 
         return True, user_input, ""
 

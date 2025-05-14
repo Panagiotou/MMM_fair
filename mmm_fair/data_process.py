@@ -58,6 +58,12 @@ def data_uci(
         categorical=categorical,
         labels=label,
     )
+    csv_dataset.description = OrderedDict(
+            [
+                ("Summary", all_raw_data.metadata.additional_info.summary),
+                ("Variables", all_raw_data.metadata.additional_info.variable_info),
+            ]
+        )
     return csv_dataset
 
 
@@ -100,3 +106,28 @@ def data_local(
         labels=label,
     )
     return csv_dataset
+
+def data_raw(raw_data: pd.DataFrame = None,
+    dataset_name: str = None,
+    target=None,) -> CSV:
+
+    try:
+        if raw_data is None:
+            if dataset_name is not None:
+                if dataset_name.endswith(".csv"):
+                    df = pd.read_csv(dataset_name)
+                elif dataset_name.endswith(".xls", ".xlsx", ".xlsm", ".xlsb", ".odf", ".ods"):
+                    df = pd.read_excel(dataset_name)
+                elif dataset_name.endswith(".json"):
+                    df = pd.read_json(dataset_name)
+                elif dataset_name.endswith(".html", ".htm"):
+                    df = pd.read_html(dataset_name)
+            else:
+                raise ValueError("At least one of a dataset name or a raw dataframe must be provided.")
+        else:
+            df = raw_data
+
+        csv_dataset = data_local(df, target)
+        return csv_dataset
+    except:
+        raise ValueError("Could not read data. Unsupported or invalid format.")

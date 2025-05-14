@@ -106,3 +106,31 @@ def convert_to_pickle(custom_model, output_path):
     with open(out_file, "wb") as f:
         pickle.dump(custom_model, f)
     print(f"Saved pickle model to {out_file}")
+
+from .onnx_utils import ONNX_MMM
+
+def mmm_onnx(path: str = "") -> ONNX_MMM:
+    models = []
+    model_names = []
+    params = None
+
+    def myk(name):
+        return int(re.findall(r"[+-]?\d+", name)[0])
+
+    # Read the zip file
+    with zipfile.ZipFile(prepare(path)) as myzip:
+        # Extract and load the weights file
+        for file_name in myzip.namelist():
+            if file_name.endswith(".npy"):
+                with myzip.open(file_name) as param_file:
+                    params = np.load(param_file, allow_pickle=True)
+            elif file_name.endswith(".onnx"):
+                model_names.append(file_name)
+
+        model_names.sort(key=myk)
+
+        for file_name in model_names:
+            with myzip.open(file_name) as model_file:
+                model_bytes = model_file.read()
+                models.append(model_bytes)
+    return ONNX_MMM(models, **dict(params.item()))
