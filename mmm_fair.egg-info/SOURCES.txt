@@ -6,6 +6,7 @@ mmm_fair/data_process.py
 mmm_fair/dataset.py
 mmm_fair/dataset_visualization.py
 mmm_fair/deploy_utils.py
+mmm_fair/fairlearn_report.py
 mmm_fair/hyperparams.py
 mmm_fair/mammoth_csv.py
 mmm_fair/mmm_fair.py

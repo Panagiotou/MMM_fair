@@ -218,16 +218,13 @@ Requires-Dist: scikit-learn>=1.5.2
 Requires-Dist: ucimlrepo
 Requires-Dist: pandas>=2.2.3
 Requires-Dist: fairbench
-Requires-Dist: fairlearn
-Requires-Dist: socket
-Requires-Dist: threading
-Requires-Dist: webbrowser
 Requires-Dist: skl2onnx
 Requires-Dist: tqdm
 Requires-Dist: plotly
 Requires-Dist: onnxruntime
-Requires-Dist: Flask
+Requires-Dist: fairlearn
 Requires-Dist: rich
+Requires-Dist: Flask
 Requires-Dist: Flask-Session
 Provides-Extra: llm-gpt
 Requires-Dist: openai; extra == "llm-gpt"

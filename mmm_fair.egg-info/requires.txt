@@ -5,15 +5,12 @@ scikit-learn>=1.5.2
 ucimlrepo
 pandas>=2.2.3
 fairbench
-fairlearn
-rich
 skl2onnx
 tqdm
 plotly
 onnxruntime
-socket
-threading
-webbrowser
+fairlearn
+rich
 Flask
 Flask-Session
 

@@ -44,9 +44,6 @@ dependencies = [
   "onnxruntime",
   "fairlearn",
   "rich",
-  "socket",
-  "threading",
-  "webbrowser",
   "Flask",
   "Flask-Session"
 ]
