@@ -144,7 +144,7 @@ def show_fairlearn_report(by_group, scalar_metrics):
     return out
 
 def generate_reports_from_fairlearn(
-    report_type, sensitives, mmm_classifier, saIndex_test, y_pred, y_test
+    report_type, sensitives, mmm_classifier, saIndex_test, y_pred, y_test, launch_browser=True
 ):
     report_type = report_type.lower()
     if report_type not in {"console", "table", "html"}:
@@ -400,8 +400,8 @@ def generate_reports_from_fairlearn(
             </body>
         </html>
         """
-
-        render_html(htmltext)  
+        if launch_browser:
+            render_html(htmltext)  
         print("HTML report rendered.")
         return htmltext 
 
@@ -463,7 +463,8 @@ def generate_reports_from_fairlearn(
         </body>
         </html>
         """
-        render_html(plot_html)  
+        if launch_browser:
+            render_html(plot_html)
         print("Fairness Plot Report rendered.")
         return plot_html
 
