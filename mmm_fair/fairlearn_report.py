@@ -231,9 +231,9 @@ def generate_reports_from_fairlearn(
             html_section = f"""
             <div style="font-family: monospace; font-size: 14px; margin-top: 10px; margin-left: 25px;">
                 <div style="color: #2e1065; font-weight: bold;">
-                    {"═" * 53}<br>
+                    <div style="white-space: pre; overflow: hidden; text-overflow: ellipsis;">{"═" * 53}<br></div>
                         <span style="margin-left: 47px;">*** Protected Attribute: {attr} ***</span><br>
-                    {"═" * 53}
+                    <div style="white-space: pre; overflow: hidden; text-overflow: ellipsis;">{"═" * 53}</div>
                 </div>
 
                 <div style="color: #2e1065; margin-left: 50px;">
@@ -318,9 +318,9 @@ def generate_reports_from_fairlearn(
             plot_html = f"""
             <div style="font-family: monospace; font-size: 14px; margin-top: 10px; margin-left: 25px;">
                 <div style="color: #2e1065; font-weight: bold;">
-                    {"═" * 53}<br>
+                    <div style="white-space: pre; overflow: hidden; text-overflow: ellipsis;">{"═" * 53}<br></div>
                         <span style="margin-left: 70px;">*** Protected Attribute: {attr} ***</span><br>
-                    {"═" * 53}
+                    <div style="white-space: pre; overflow: hidden; text-overflow: ellipsis;">{"═" * 53}</div>
                 </div>
 
                 <div style="color: #2e1065; margin-left: 0px; margin-top: -60px; margin-bottom: -70px;">
@@ -390,7 +390,7 @@ def generate_reports_from_fairlearn(
                         </div>
                         {''.join(html_blocks)}
                         <div style="color: #2e1065; font-weight: bold; margin-left: 25px;">
-                            {"═" * 48}<br>
+                            <div style="white-space: pre; overflow: hidden; text-overflow: ellipsis;">{"═" * 48}<br></div>
                         </div>
                     </div>
                     <div class="explanation">
@@ -455,6 +455,9 @@ def generate_reports_from_fairlearn(
                         <h1>FairLearn Fairness Report: Plots</h1>
                     </div>
                     {"".join(plot_sections)}
+                    <div style="color: #2e1065; font-weight: bold; margin-left: 25px;">
+                        <div style="white-space: pre; overflow: hidden; text-overflow: ellipsis;">{"═" * 48}<br></div>
+                    </div>
                 </div>
                 <div class="explanation">
                     {explanation_html}
