@@ -18,7 +18,7 @@ mmm-fair-chat = "mmm_fair.mchat.mmm_app:main"
 
 [project]
 name = "mmm-fair"
-version = "2.2.0"
+version = "2.2.1"
 description = "A multi-objective multi-fairness boosting classifier"
 readme = "README.md"
 authors = [
@@ -38,7 +38,7 @@ dependencies = [
   "ucimlrepo",
   "pandas>=2.2.3",
   "fairbench",
-  "skl2onnx",
+  "skl2onnx==1.17.0",
   "tqdm",
   "plotly",
   "onnxruntime",
