@@ -307,7 +307,7 @@ For the bias exploration using [MAMMOth](https://mammoth-ai.eu) pipeline it is r
 
 #### Maintainer: Arjun Roy (arjunroyihrpa@gmail.com)
 
-#### Contributors: Swati Swati (swati17293@gmail.com)
+#### Contributors: Swati Swati (swati17293@gmail.com), Emmanoui Panagiotou (panagiotouemm@gmail.com)
 
 ### 🏛️ Funding
 
