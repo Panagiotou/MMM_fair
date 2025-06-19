@@ -17,10 +17,10 @@ def get_langchain_agent(llm,template="Your are an MMM-fair bot, just say Hi and 
     return langchain_agent
 
 
-def summarize_html_report(html_context, langchain_agent: LLMChain) -> str:
+def summarize_html_report(html_context, langchain_agent: LLMChain, question="", summary="") -> str:
     try:   
-        print(html_context[:200])
-        result = langchain_agent.invoke({"context": html_context})
+        #print(html_context[:200])
+        result = langchain_agent.invoke({"context": html_context, "summary": summary, "question": question})
         return result.get("text", "⚠️ No summary returned.")
     except Exception as e:
         return f"⚠️ Could not summarize the report: {e}"

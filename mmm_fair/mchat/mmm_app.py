@@ -32,7 +32,9 @@ except ImportError:
     
 from mmm_fair.mchat.openai_utils import get_openAI_llm
 from mmm_fair.mchat.groq_utils import get_groq_llm
-
+from mmm_fair.mchat._utils import (filter_html, temp, remove_markdown, temp2, templates, 
+                                    get_llm_context, summarize_data_distribution, 
+                                    summarize_pareto)
 
 from mmm_fair.viz_trade_offs import plot_spider
 from mmm_fair.dataset_visualization import generate_nested_pie_chart
@@ -408,7 +410,7 @@ def ask_chat():
         user_msg = button_value
         
 
-    if session.get("mmm_classifier") is not None and session.get("last_action") == "plotted" and user_msg.lower() in ["yes", "explain", "please explain", "what do these mean?", "openai", "chatgpt", "groqai", "groq", "togetherai", "together"]:
+    if (session.get("mmm_classifier") is not None and session.get("last_action") == "plotted" and user_msg.lower() in ["yes", "explain", "please explain", "what do these mean?", "openai", "chatgpt", "groqai", "groq", "togetherai", "together"]) or session.get("llm_context_active"):
         if not session.get("llm_enabled"):
             session["llm_provider"] = "in-progress"
             chat_history = prompt_for_llm_provider(chat_history)
@@ -436,6 +438,7 @@ def ask_chat():
                 return jsonify({"chat_history": chat_history[-1:]})
                 
             else:
+                
                 # Provider already selected, check if we need API key
                 if not session.get("api_enabled"):
                     return jsonify({
@@ -449,22 +452,84 @@ def ask_chat():
                 
                 # If we have API key, generate explanation
                 try:
-                    # Get relevant data for explanation
-                    table_id = session.get("table_id", 0)
                     all_plots = session.get("plots")
-
-                    table_plot = [item for item in all_plots if item.get("id") == table_id][0]
-                    table_plot_html = table_plot["srcdoc"]
-
+                    mmm_classifier = session.get("mmm_classifier")
+                    theta = mmm_classifier.theta
+                    template = temp2
                     providers = session.get("valid_providers")
                     selected_model = session.get("llm_provider")
                     llm = providers[selected_model]()
-                    template = [
-                        ("system", "You are a fairness analysis expert, specially skilled to point out trade-offs between different performance metrics and fairness metrics, and gives suggestive guidance to user where fairness needs to be improved."),
-                        ("user", "Please explain in brief summary the following given report focusing mainly on the most important numbers about fairness and predictive performance across protected attributes:\n{context}\n\n")
-                    ]
-                    llm_agent = get_langchain_agent(llm, template)
-                    summary_response = summarize_html_report(table_plot_html, llm_agent)
+
+                    
+                    if session.get("llm_context_active"):
+                        context= get_llm_context(user_msg)
+                        print(f"Debug {context}")
+                        summary = session.get("table_summary", {})
+                        if context!="viz_pareto":
+                            if context=="viz_fair":
+                                template = [("system", templates["temp_exp"] + '\n' + templates["temp_fair"]), ("user",templates["temp_user"])]
+                                llm_agent = get_langchain_agent(llm, template)
+                                PF = np.array(
+                [mmm_classifier.fairobs[i] for i in range(len(mmm_classifier.fairobs))])
+                                obj_names =["DP", "EqOpp", "EqOdd", "TPR", "FPR"]
+                                plot_html= summarize_pareto(PF, obj_names, 1)
+                                
+                            elif context=="viz_all":
+                                template = [("system", templates["temp_exp"] + '\n' + templates["temp_all"]), ("user",templates["temp_user"])]
+                                llm_agent = get_langchain_agent(llm, template)
+                                PF = np.array([mmm_classifier.ob[i] for i in range(len(mmm_classifier.ob))])
+                                obj_names = ["Acc. loss", "Balanc. Acc loss", "M3-fair loss"]
+                                plot_html= summarize_pareto(PF, obj_names, 2)
+                                
+                            elif context=="viz_data":
+                                template = [("system", templates["temp_exp"] + '\n' + templates["temp_data"]), ("user",templates["temp_user"])]
+                                llm_agent = get_langchain_agent(llm, template)
+                                data_obj = session.get("data")
+                                user_args = session.get("user_args", {})
+                                target = user_args.get("target")
+                                protected_attrs = user_args.get("prots", [])
+                                plot_html = summarize_data_distribution(data_obj, target, protected_attrs)
+                                
+                            else:  
+                                template = [("system", templates["temp_exp"] + '\n' + templates["temp_tab"]), ("user",templates["temp_user"])]
+                                llm_agent = get_langchain_agent(llm, template)
+                                plot_html=all_plots[-1]['srcdoc']
+                            #filtered_plot = filter_html(plot_html)
+                            #print(f"Debug {plot_html[:1000]}")
+                            summary_response = summarize_html_report(plot_html, llm_agent, summary="", question=user_msg) #summary.get("response", "")
+                            summary_response = remove_markdown(summary_response)
+                            if context=="summary":
+                                summary["response"]= summary_response + f"\n this was the generated summary for the model with theta value {theta}"
+                                summary["theta"]=theta
+                                session["table_summary"]=summary
+                                
+                        elif context=="viz_pareto": 
+                            template = [("system", templates["temp_exp"] + '\n' + templates["temp_all"] + '\n' + templates["temp_fair"]), ("user",templates["temp_user"])]
+                            llm_agent = get_langchain_agent(llm, template)
+                            PF = np.array(
+                [mmm_classifier.fairobs[i] for i in range(len(mmm_classifier.fairobs))])
+                            obj_names =["DP", "EqOpp", "EqOdd", "TPR", "FPR"]
+                            summary_f= summarize_pareto(PF, obj_names, 1)
+                            PF = np.array([mmm_classifier.ob[i] for i in range(len(mmm_classifier.ob))])
+                            obj_names = ["Acc. loss", "Balanc. Acc loss", "M3-fair loss"]
+                            summary_o= summarize_pareto(PF, obj_names, 1)
+                            summary_response = summarize_html_report(summary_f + summary_o, llm_agent, summary="", question=user_msg)
+                        
+                    else:    
+                        table_id = session.get("table_id", 0)
+                        template = [("system", templates["temp_exp"] + '\n' + templates["temp_tab"]), ("user",templates["temp_user"])]
+                        llm_agent = get_langchain_agent(llm, template)
+    
+                        table_plot = [item for item in all_plots if item.get("id") == table_id][0]
+                        table_plot_html = table_plot["srcdoc"]
+                        filtered_table = filter_html(table_plot_html)
+    
+                        summary_response = summarize_html_report(filtered_table, llm_agent)
+                        summary_response = remove_markdown(summary_response)
+                        
+                        session["table_summary"]= {"response": summary_response + f"\n this was the generated summary for the model with theta value {theta}", "theta": theta}
+                        session["llm_context_active"]=True
+                        #session["agent"] = llm_agent#This is fatal as session cannot store such file
                     
                 except Exception as e:
                     if "openai" in str(e).lower() or "key" in str(e).lower() or "quota" in str(e).lower():
@@ -479,13 +544,21 @@ def ask_chat():
                 
                     summary_response = f"(⚠️ Could not summarize the plot: {e})"
             
-                chat_history.append({"sender": "bot", "text": summary_response})
+                summary_response += (
+                            " \n\n If you have any further questions about the Pareto plots for fairness definitions or multi-objective trade-offs, data distribution, you can select from the options below or feel free to ask me through the chat.")  
+                chat_history.append({"sender": "bot", "text": summary_response,
+                        "options": [
+                            {"value": "multi-objective", "text": "Multi-obs Pareto"},
+                            {"value": "multi-definition", "text": "Multi-defs Pareto"},
+                            {"value": "pareto", "text": "Best Theta"},
+                            {"value": "data", "text": "Data Insights"},
+                        ],})
                 # Clean up session
-                if "valid_providers" in session:
-                    del session["valid_providers"]
+                # if "valid_providers" in session:
+                #     del session["valid_providers"]
                 session["last_action"] = "summarized"
                 session["chat_history"] = chat_history
-                return jsonify({"chat_history": chat_history[-1:]})
+                return jsonify({"chat_history": chat_history[-1:], "isMarkdown": True})
         
         elif session.get("llm_provider") == "in-progress" and len(session.get("valid_providers", {})) == 0:
             chat_history.append({
@@ -1002,6 +1075,10 @@ def update_model():
         },
         "existing_id": table_id
     }
+    all_plots=session.get("plots")
+    all_plots[-1]['srcdoc']=report_table
+    session["plots"] = all_plots
+
 
 
     # unique_id = str(uuid.uuid4())[:4]
@@ -1020,7 +1097,7 @@ def update_model():
             "success": True,
             "message": f"Model updated with Theta index {theta_value}.",
             # "plot_fair_url": f"/static/{plot_table}",
-            "update_plots": [report_table_plot_dict],
+            "plots": [report_table_plot_dict],
             "chat_history": [
                 {
                     "sender": "bot",
@@ -1240,8 +1317,8 @@ def get_prompt_for_arg(arg_name, user_args):
             "Please select a fairness constraint:",
             [
                 {"value": "DP", "text": "Demographic Parity (DP)"},
-                {"value": "EP", "text": "Equal Precision (EP)"},
-                {"value": "EO", "text": "Equal Opportunity (EO)"},
+                {"value": "EP", "text": "Equal Opportunity (EqOpp)"},
+                {"value": "EO", "text": "Equalized Odds (EqOdd)"},
                 {"value": "TPR", "text": "True Positive Rate (TPR)"},
                 {"value": "FPR", "text": "False Positive Rate (FPR)"},
             ],
@@ -1537,6 +1614,7 @@ def visualize_data():
         #     # Get the next prompt to display after visualization
 
         # Mark visualization as completed in user_args
+        session["data_viz"] = data_plot_dict
         user_args["data_visualization"] = "completed"
         session["user_args"] = user_args
 
@@ -1592,6 +1670,7 @@ def visualize_data():
         )
 
 
+    
 @app.route("/finish_features", methods=["POST"])
 def finish_features():
     user_args = session.get("user_args", {})
@@ -1700,7 +1779,7 @@ def run_mmm_fair_app(user_args):
         objectives=PF,
         theta=thetas,
         criteria="Multi",
-        axis_names=["Acc.", "Balanc. Acc", "MMM-fair"],
+        axis_names=["Acc. loss", "Balanc. Acc loss", "M3-fair loss"],
         title=title,
         html=True,
     )
@@ -1786,6 +1865,7 @@ def run_mmm_fair_app(user_args):
     session["html_divs"] = [THETA_DIV]
 
     return [vis_all_plot_dict, vis_fair_plot_dict, report_table_plot_dict], [THETA_DIV]
+
 
 
 @app.route("/static/<path:filename>")

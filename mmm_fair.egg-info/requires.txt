@@ -5,7 +5,7 @@ scikit-learn>=1.5.2
 ucimlrepo
 pandas>=2.2.3
 fairbench
-skl2onnx
+skl2onnx==1.17.0
 tqdm
 plotly
 onnxruntime

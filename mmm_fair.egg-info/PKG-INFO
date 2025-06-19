@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mmm-fair
-Version: 2.2.0
+Version: 2.2.2
 Summary: A multi-objective multi-fairness boosting classifier
 Author-email: Arjun Roy <arjunroyihrpa@gmail.com>, Swati Swati <swati17293@gmail.com>, Emmanouil Panagiotou <panagiotouemm@gmail.com>
 License:                                  Apache License
@@ -218,7 +218,7 @@ Requires-Dist: scikit-learn>=1.5.2
 Requires-Dist: ucimlrepo
 Requires-Dist: pandas>=2.2.3
 Requires-Dist: fairbench
-Requires-Dist: skl2onnx
+Requires-Dist: skl2onnx==1.17.0
 Requires-Dist: tqdm
 Requires-Dist: plotly
 Requires-Dist: onnxruntime
@@ -555,7 +555,7 @@ For the bias exploration using [MAMMOth](https://mammoth-ai.eu) pipeline it is r
 
 #### Maintainer: Arjun Roy (arjunroyihrpa@gmail.com)
 
-#### Contributors: Swati Swati (swati17293@gmail.com)
+#### Contributors: Swati Swati (swati17293@gmail.com), Emmanoui Panagiotou (panagiotouemm@gmail.com)
 
 ### 🏛️ Funding
 

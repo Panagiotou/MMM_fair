@@ -64,7 +64,7 @@ document.addEventListener("DOMContentLoaded", function(){
     window.selectedFeatures = [];
 
     // Function to render messages in the chatbox with animations
-    function renderMessage(sender, text, options = null, isTyping = false) {
+    function renderMessage(sender, text, options = null, isTyping = false, isMarkdown=false) {
         let messageDiv = document.createElement("div");
         messageDiv.classList.add("message", sender); // Adds "user" or "bot" class
 
@@ -86,7 +86,12 @@ document.addEventListener("DOMContentLoaded", function(){
             typeText(textDiv, text, options, messageDiv);
         } else {
             // For user messages or when no typing animation is needed
-            textDiv.innerHTML = text.replace(/\n/g, '<br>');
+             if (isMarkdown) {
+            // If we want to render Markdown
+            textDiv.innerHTML = DOMPurify.sanitize(marked.parse(text));  
+            } else {
+                textDiv.innerHTML = text.replace(/\n/g, "<br>");
+            }
             
             // Add buttons or feature selector immediately for non-animated messages
             if (options) {
@@ -1212,9 +1217,11 @@ document.addEventListener("DOMContentLoaded", function(){
         .then(data => {
           if (data.success) {
             alert(`Model updated successfully with Theta ${thetaValue}`);
-            if (data.plot_fair_url) {
-              plot2dBox.innerHTML = `<iframe src="${data.plot_fair_url}?t=${Date.now()}" width="100%" height="400px" frameborder="0"></iframe>`;
-            }
+            if (data.plots && Array.isArray(data.plots)) {
+                data.plots.forEach(plot => {
+                    updateDataVisualization(plot);
+                });
+                }
           } else {
             alert(`Error updating model: ${data.error}`);
           }
